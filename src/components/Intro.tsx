@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles } from "lucide-react";
 
@@ -7,169 +7,180 @@ interface IntroProps {
 }
 
 export default function Intro({ onComplete }: IntroProps) {
-  const [stage, setStage] = useState<"gate" | "opening" | "text" | "finished">("gate");
+  const [stage, setStage] = useState<"door_closed" | "door_opening" | "entering" | "text" | "finished">("door_closed");
 
-  const handleOpenGate = () => {
-    // Chống bấm đúp gây lỗi logic
-    if (stage !== "gate") return;
+  const handleOpenDoor = () => {
+    if (stage !== "door_closed") return;
     
-    // Bước 1: Kích hoạt hiệu ứng mở cửa
-    setStage("opening");
+    // 1. Cửa bắt đầu mở
+    setStage("door_opening");
 
-    // Bước 2: Sau 1.5s khi cửa đã mở dạt sang hai bên, hiện dòng chữ chào mừng
+    // 2. Sau 1.5s, camera tiến tới (zoom) vào cánh cửa ánh sáng
     setTimeout(() => {
-      setStage("text");
+      setStage("entering");
     }, 1500);
 
-    // Bước 3: Sau 5s (đủ thời gian để người dùng đọc chữ), kết thúc Intro và vào Web
+    // 3. Sau 2.5s, chuyển sang màn hình chữ mây trời mộng mơ
+    setTimeout(() => {
+      setStage("text");
+    }, 2500);
+
+    // 4. Đợi người dùng ngắm chữ 4s rồi kết thúc
     setTimeout(() => {
       setStage("finished");
       onComplete();
-    }, 5000);
+    }, 6500);
   };
 
-  // Tạo mảng 30 hạt lấp lánh (particles) bay lơ lửng
-  const particles = Array.from({ length: 30 });
+  // Tạo mảng sao lấp lánh bên trong cánh cửa
+  const stars = Array.from({ length: 40 });
 
   return (
-    <AnimatePresence>
-      {stage !== "finished" && (
-        <motion.div
-          id="intro-container"
-          className="fixed inset-0 z-[9999] flex items-center justify-center overflow-hidden bg-slate-950"
-          exit={{ opacity: 0, transition: { duration: 1.5 } }}
-        >
-          {/* --- NỀN HẠT LẤP LÁNH (PARTICLES) --- */}
-          {particles.map((_, i) => (
-            <motion.div
-              key={i}
-              className="absolute rounded-full bg-white"
-              style={{
-                width: Math.random() * 4 + 1 + "px",
-                height: Math.random() * 4 + 1 + "px",
-                top: Math.random() * 100 + "%",
-                left: Math.random() * 100 + "%",
-                boxShadow: "0 0 10px 2px rgba(255, 255, 255, 0.8)",
-              }}
-              animate={{
-                y: [0, -40, 0],
-                opacity: [0.1, 0.8, 0.1],
-                scale: [1, 1.5, 1],
-              }}
-              transition={{
-                duration: Math.random() * 3 + 2,
-                repeat: Infinity,
-                ease: "easeInOut",
-                delay: Math.random() * 2,
-              }}
-            />
-          ))}
+    <>
+      {/* Nhúng trực tiếp font chữ siêu đẹp và lấp lánh giống hệt ảnh reference */}
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Great+Vibes&family=Montserrat:wght@300;400&display=swap');
+        
+        .font-dreamy {
+          font-family: 'Great Vibes', cursive;
+        }
+        
+        .font-sans-elegant {
+          font-family: 'Montserrat', sans-serif;
+        }
 
-          {/* --- ÁNH SÁNG TRÀN VÀO (Khi cửa mở) --- */}
+        .glow-text {
+          color: #ffffff;
+          text-shadow: 
+            0 0 10px #fff,
+            0 0 20px #fff,
+            0 0 40px #ff9ecd,
+            0 0 80px #ff9ecd,
+            0 0 120px #ff9ecd;
+        }
+
+        .door-perspective {
+          perspective: 1200px;
+        }
+        
+        .door-swing {
+          transform-origin: left;
+        }
+      `}</style>
+
+      <AnimatePresence>
+        {stage !== "finished" && (
           <motion.div
-            className="absolute inset-0 bg-gradient-to-tr from-pink-200 via-purple-100 to-green-100 z-0"
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{
-              opacity: stage === "gate" ? 0 : 1,
-              scale: stage === "gate" ? 0.8 : 1.1,
-            }}
-            transition={{ duration: 2, ease: "easeInOut" }}
-          />
-
-          {/* --- CÁNH CỬA KHÔNG GIAN (GATE) --- */}
-          {stage === "gate" || stage === "opening" ? (
-            <div 
-              className="absolute inset-0 flex z-10 w-full h-full cursor-pointer" 
-              onClick={handleOpenGate}
-            >
-              {/* Cửa Trái */}
+            className="fixed inset-0 z-[9999] flex items-center justify-center overflow-hidden bg-[#0A1128]"
+            exit={{ opacity: 0, transition: { duration: 1.5 } }}
+          >
+            {/* ---------------- SCENE 1 & 2: CÁNH CỬA PHÉP THUẬT (Dựa theo image_8) ---------------- */}
+            {(stage === "door_closed" || stage === "door_opening" || stage === "entering") && (
               <motion.div
-                className="w-1/2 h-full bg-slate-900/60 backdrop-blur-xl border-r-2 border-pink-400/50 flex items-center justify-end overflow-hidden relative shadow-[20px_0_50px_rgba(244,114,182,0.15)]"
-                initial={{ x: 0 }}
-                animate={{ x: stage === "opening" ? "-100%" : 0 }}
-                transition={{ duration: 1.5, ease: [0.76, 0, 0.24, 1] }}
-              >
-                {/* Họa tiết ảo ảnh trên cửa */}
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-48 h-96 border-[4px] border-pink-300/20 rounded-full" />
-              </motion.div>
-
-              {/* Cửa Phải */}
-              <motion.div
-                className="w-1/2 h-full bg-slate-900/60 backdrop-blur-xl border-l-2 border-pink-400/50 flex items-center justify-start overflow-hidden relative shadow-[-20px_0_50px_rgba(244,114,182,0.15)]"
-                initial={{ x: 0 }}
-                animate={{ x: stage === "opening" ? "100%" : 0 }}
-                transition={{ duration: 1.5, ease: [0.76, 0, 0.24, 1] }}
-              >
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 w-48 h-96 border-[4px] border-pink-300/20 rounded-full" />
-              </motion.div>
-
-              {/* Cầu Cầu Phép Thuật (Nút mở cửa ở giữa) */}
-              <motion.div
-                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center gap-4"
-                initial={{ opacity: 1, scale: 1 }}
+                className="relative w-full h-full flex flex-col items-center justify-end door-perspective"
+                initial={{ scale: 1, opacity: 1 }}
                 animate={{ 
-                  opacity: stage === "opening" ? 0 : 1, 
-                  scale: stage === "opening" ? 1.5 : 1 
+                  scale: stage === "entering" ? 5 : 1, // Hiệu ứng zoom xuyên qua cửa
+                  opacity: stage === "entering" ? 0 : 1 
                 }}
-                transition={{ duration: 0.5 }}
+                transition={{ duration: 1.5, ease: "easeInOut" }}
               >
-                <motion.div
-                  className="w-24 h-24 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center shadow-[0_0_40px_rgba(244,114,182,0.6)] cursor-pointer"
-                  animate={{ 
-                    scale: [1, 1.05, 1], 
-                    boxShadow: [
-                      "0 0 20px rgba(244,114,182,0.5)", 
-                      "0 0 60px rgba(244,114,182,1)", 
-                      "0 0 20px rgba(244,114,182,0.5)"
-                    ] 
-                  }}
-                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                >
-                  <Sparkles className="w-10 h-10 text-white" />
-                </motion.div>
-                <span className="text-white font-bold tracking-widest text-xs uppercase drop-shadow-md">
-                  Chạm Để Mở Cửa
-                </span>
-              </motion.div>
-            </div>
-          ) : null}
+                {/* Vệt sáng chiếu ra sàn nhà */}
+                <motion.div 
+                  className="absolute bottom-0 w-full h-[40vh] bg-gradient-to-t from-pink-200/40 via-purple-300/20 to-transparent"
+                  style={{ clipPath: "polygon(20% 100%, 80% 100%, 55% 0, 45% 0)" }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: stage === "door_closed" ? 0 : 1 }}
+                  transition={{ duration: 1.5 }}
+                />
 
-          {/* --- DÒNG CHỮ CHÀO MỪNG CHÍNH THỨC --- */}
-          {stage === "text" && (
-            <motion.div
-              className="z-30 flex flex-col items-center text-center px-6"
-              initial={{ opacity: 0, y: 40, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, scale: 1.1, filter: "blur(10px)" }}
-              transition={{ duration: 1.2, ease: "easeOut" }}
-            >
-              <motion.div 
-                initial={{ opacity: 0, rotate: -45 }}
-                animate={{ opacity: 1, rotate: 0 }}
-                transition={{ delay: 0.3, duration: 1 }}
-                className="mb-4"
-              >
-                <Sparkles className="w-12 h-12 text-pink-500 animate-spin-slow drop-shadow-md" />
+                {/* Khung cửa */}
+                <div className="relative w-[280px] h-[480px] md:w-[360px] md:h-[600px] mb-[10vh] border-[12px] border-[#c0d6df] bg-gradient-to-tr from-[#ff9a9e] to-[#fecfef] shadow-[0_0_50px_rgba(255,154,158,0.5)] flex items-center justify-center overflow-hidden">
+                  
+                  {/* Bầu trời sao bên trong cửa */}
+                  {stars.map((_, i) => (
+                    <motion.div
+                      key={i}
+                      className="absolute bg-white rounded-full"
+                      style={{
+                        width: Math.random() * 3 + 1 + "px",
+                        height: Math.random() * 3 + 1 + "px",
+                        top: Math.random() * 100 + "%",
+                        left: Math.random() * 100 + "%",
+                        boxShadow: "0 0 8px 2px rgba(255, 255, 255, 0.8)",
+                      }}
+                      animate={{ opacity: [0.2, 1, 0.2], scale: [0.8, 1.2, 0.8] }}
+                      transition={{ duration: Math.random() * 2 + 1.5, repeat: Infinity, ease: "easeInOut" }}
+                    />
+                  ))}
+                  
+                  {/* Chữ lơ lửng mời gọi (sẽ biến mất khi mở) */}
+                  <motion.div 
+                    className="absolute z-10 flex flex-col items-center"
+                    animate={{ opacity: stage === "door_closed" ? 1 : 0 }}
+                  >
+                    <Sparkles className="w-8 h-8 text-white mb-2 animate-pulse" />
+                    <span className="text-white font-sans-elegant text-xs uppercase tracking-widest font-bold">Mở cửa</span>
+                  </motion.div>
+
+                  {/* Cánh cửa (sẽ mở xoay ra ngoài) */}
+                  <motion.div
+                    className="door-swing absolute top-0 left-0 w-full h-full bg-[#e0eaf5] border-r-2 border-white/50 shadow-[-10px_0_30px_rgba(0,0,0,0.5)] cursor-pointer flex items-center"
+                    initial={{ rotateY: 0 }}
+                    animate={{ rotateY: stage !== "door_closed" ? -105 : 0 }} // Xoay 105 độ để mở cửa
+                    transition={{ duration: 1.5, ease: [0.25, 1, 0.5, 1] }}
+                    onClick={handleOpenDoor}
+                  >
+                    {/* Tay nắm cửa mạ vàng */}
+                    <div className="absolute right-4 w-4 h-16 bg-gradient-to-b from-yellow-300 to-yellow-600 rounded-full shadow-lg" />
+                  </motion.div>
+                </div>
               </motion.div>
-              
-              <h1 className="text-3xl md:text-5xl font-display text-slate-800 drop-shadow-sm leading-tight">
-                Chào mừng bạn đến với <br />
-                <span className="text-5xl md:text-7xl font-script text-pink-500 mt-3 block drop-shadow-lg">
-                  thế giới mộng mơ của Hinh.
-                </span>
-              </h1>
-              
-              {/* Vạch kẻ trang trí nhỏ dưới chữ */}
+            )}
+
+            {/* ---------------- SCENE 3: TYPOGRAPHY MỘNG MƠ (Dựa theo image_9) ---------------- */}
+            {stage === "text" && (
               <motion.div
-                className="mt-8 h-[2px] rounded-full bg-gradient-to-r from-transparent via-pink-400 to-transparent"
-                initial={{ width: 0 }}
-                animate={{ width: 150 }}
-                transition={{ delay: 0.8, duration: 1.5 }}
-              />
-            </motion.div>
-          )}
-        </motion.div>
-      )}
-    </AnimatePresence>
+                className="absolute inset-0 z-50 flex flex-col items-center justify-center"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0, filter: "blur(20px)" }}
+                transition={{ duration: 1.5 }}
+                // Background bầu trời mây pastel ảo diệu
+                style={{
+                  background: "radial-gradient(circle at center, #ffc3a0 0%, #ffafbd 30%, #a18cd1 80%, #fbc2eb 100%)",
+                }}
+              >
+                {/* Lớp filter mây trắng lơ lửng làm nền */}
+                <div className="absolute inset-0 bg-white/20 mix-blend-overlay blur-3xl" />
+
+                <motion.div
+                  className="relative z-10 text-center px-4"
+                  initial={{ y: 30, scale: 0.9, opacity: 0 }}
+                  animate={{ y: 0, scale: 1, opacity: 1 }}
+                  transition={{ duration: 1.2, delay: 0.5, ease: "easeOut" }}
+                >
+                  <p className="font-sans-elegant text-white text-sm md:text-lg tracking-[0.2em] uppercase mb-4 drop-shadow-md">
+                    Chào mừng bạn đến với
+                  </p>
+                  
+                  <div className="relative">
+                    {/* Icon lấp lánh điểm xuyết quanh chữ */}
+                    <motion.div className="absolute -top-6 -left-6 text-white text-2xl" animate={{ scale: [1, 1.3, 1] }} transition={{ repeat: Infinity, duration: 2 }}>✦</motion.div>
+                    <motion.div className="absolute -bottom-4 -right-4 text-white text-3xl" animate={{ scale: [1, 1.2, 1] }} transition={{ repeat: Infinity, duration: 2.5, delay: 0.5 }}>✧</motion.div>
+
+                    <h1 className="font-dreamy text-6xl md:text-8xl lg:text-9xl glow-text leading-tight px-8">
+                      Thế giới mộng mơ
+                      <br />
+                      <span className="text-5xl md:text-7xl lg:text-8xl mt-2 block">của Hinh</span>
+                    </h1>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
