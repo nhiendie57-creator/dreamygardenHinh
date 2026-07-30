@@ -5,7 +5,7 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
-    base: '/dreamygardenHinh/', // <- Đường dẫn chuẩn theo tên repository của chị
+    base: './', 
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
