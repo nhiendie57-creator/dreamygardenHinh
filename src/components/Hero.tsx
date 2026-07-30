@@ -76,7 +76,7 @@ export default function Hero({
 
   return (
     <div className="flex flex-col items-center justify-center text-center z-10 px-4 mt-20 md:mt-24">
-      {/* Hiệu ứng chữ Dreamy (lấp lánh nhấp nháy nhẹ) + Garden (ombre chạy màu pastel hồng-tím-xanh) */}
+      {/* Dynamic Keyframe Styles for Shimmering Text, Ombre, and Sparkling Glowing Shadows */}
       <style>{`
         @keyframes dreamyShimmer {
           0%, 100% {
@@ -118,6 +118,31 @@ export default function Hero({
           color: transparent;
           animation: gardenOmbre 6s ease-in-out infinite;
         }
+
+        @keyframes gardenGlowSparkle {
+          0%, 100% {
+            text-shadow: 
+              0 0 14px rgba(255, 179, 209, 0.9),
+              0 0 28px rgba(217, 179, 255, 0.75),
+              0 0 50px rgba(179, 212, 255, 0.6);
+            transform: scale(0.995);
+            opacity: 0.85;
+          }
+          50% {
+            text-shadow: 
+              0 0 22px rgba(255, 179, 209, 1),
+              0 0 48px rgba(217, 179, 255, 0.95),
+              0 0 80px rgba(179, 212, 255, 0.85);
+            transform: scale(1.005);
+            opacity: 1;
+          }
+        }
+
+        .garden-glow {
+          color: rgba(255, 179, 209, 0.35);
+          animation: gardenGlowSparkle 3.2s ease-in-out infinite;
+          transform-origin: center;
+        }
       `}</style>
 
       {/* Small Eyebrow Label */}
@@ -135,7 +160,7 @@ export default function Hero({
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ delay: 0.8, duration: 1.2, ease: "easeOut" }}
-        className="flex flex-row flex-wrap items-center justify-center gap-2 md:gap-5 select-none max-w-full"
+        className="flex flex-row flex-wrap items-center justify-center gap-x-1 md:gap-x-2 gap-y-1 select-none max-w-full overflow-visible"
       >
         <motion.span
           animate={{ y: [0, -6, 0] }}
@@ -145,11 +170,23 @@ export default function Hero({
         >
           Dreamy
         </motion.span>
-        <span
-          className="garden-ombre font-script"
-          style={{ fontSize: "clamp(3.25rem, 11vw, 8rem)", lineHeight: 1.1 }}
-        >
-          Garden
+
+        {/* Dual-layered design to prevent background-clip edge crop-outs and render beautiful sparkling glow shadows */}
+        <span className="relative inline-block px-1 py-1 overflow-visible">
+          {/* Layer 1: Glowing under-layer */}
+          <span
+            className="absolute inset-0 flex items-center justify-center font-script garden-glow text-center whitespace-nowrap select-none pointer-events-none"
+            style={{ fontSize: "clamp(3.25rem, 11vw, 8rem)", lineHeight: 1.1 }}
+          >
+            Garden
+          </span>
+          {/* Layer 2: Main ombre-colored gradient-clipped text */}
+          <span
+            className="relative z-10 block font-script garden-ombre text-center whitespace-nowrap"
+            style={{ fontSize: "clamp(3.25rem, 11vw, 8rem)", lineHeight: 1.1 }}
+          >
+            Garden
+          </span>
         </span>
       </motion.h1>
 
