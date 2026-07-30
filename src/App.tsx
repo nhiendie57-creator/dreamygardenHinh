@@ -3,10 +3,11 @@ import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "./config/firebase";
 import { UserProfile, TabType } from "./types";
 import { motion, AnimatePresence } from "motion/react";
-import { AlertCircle, CheckCircle, Info } from "lucide-react";
+import { AlertCircle, CheckCircle, Info, ShieldCheck } from "lucide-react";
 
 // Components
-import BackgroundEffects from "./components/BackgroundEffects";
+import Intro from "./components/Intro";
+import BackgroundOverlay from "./components/BackgroundOverlay";
 import Navbar from "./components/Navbar";
 import AuthPanel from "./components/AuthPanel";
 import MusicPlayer from "./components/MusicPlayer";
@@ -23,6 +24,7 @@ interface Toast {
 }
 
 export default function App() {
+  const [showIntro, setShowIntro] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>("home");
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -42,6 +44,7 @@ export default function App() {
   useEffect(() => {
     const docRef = doc(db, "settings", "app");
     
+    // Realtime listen to background customization
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
@@ -73,10 +76,13 @@ export default function App() {
 
   return (
     <div className="relative min-h-screen w-full select-none overflow-x-hidden flex flex-col font-sans-dreamy">
-      {/* Background Effects mượt mà */}
-      <BackgroundEffects customBgUrl={customBgUrl} />
+      {/* 1. Dramatic Opening Winged Envelope Intro */}
+      <Intro onComplete={() => setShowIntro(false)} />
 
-      {/* Global Toast Floating Notifications */}
+      {/* 2. Layer base interactive celestial background overlay */}
+      <BackgroundOverlay customBgUrl={customBgUrl} />
+
+      {/* 3. Global Glassmorphism Toast Floating Notification Container */}
       <div className="fixed top-24 right-6 z-[9999] flex flex-col gap-2 max-w-sm w-full pointer-events-none">
         <AnimatePresence>
           {toasts.map((t) => (
@@ -97,13 +103,13 @@ export default function App() {
         </AnimatePresence>
       </div>
 
-      {/* Admin pill warning in Top-Center */}
-      {isAdmin && currentUser && (
+      {/* 4. Active Admin Super Admin pill warning in Top-Center */}
+      {isAdmin && !showIntro && (
         <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[150] pointer-events-none">
           <motion.div
             initial={{ y: -30, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            className="bg-pink-100/90 backdrop-blur-md border border-pink-300 text-pink-700 px-4 py-1.5 rounded-full text-[11px] font-bold tracking-wide shadow-md flex items-center gap-1.5"
+            className="bg-pink-100/90 backdrop-blur-md border border-pink-300 text-pink-700 px-4 py-1.5 rounded-full text-[11px] font-bold tracking-wide shadow-md flex items-center gap-1.5 shadow-pink-100/50"
           >
             <CheckCircle className="w-4 h-4 text-pink-500 animate-pulse" />
             Bạn đang thao tác với vai trò là quản trị viên của Dreamy Garden
@@ -111,75 +117,78 @@ export default function App() {
         </div>
       )}
 
-      {/* Core Interface Shell components */}
-      <div className="flex-1 flex flex-col w-full relative min-h-screen">
-        <AuthPanel
-          currentUser={currentUser}
-          isAdmin={isAdmin}
-          onLogin={handleLogin}
-          onLogout={handleLogout}
-          showToast={showToast}
-        />
+      {/* 5. Core Interface Shell components */}
+      {!showIntro && (
+        <div className="flex-1 flex flex-col w-full relative min-h-screen">
+          {/* Fixed Layout Modules */}
+          <AuthPanel
+            currentUser={currentUser}
+            isAdmin={isAdmin}
+            onLogin={handleLogin}
+            onLogout={handleLogout}
+            showToast={showToast}
+          />
 
-        <Navbar activeTab={activeTab} onChangeTab={setActiveTab} />
+          <Navbar activeTab={activeTab} onChangeTab={setActiveTab} />
 
-        <MusicPlayer isAdmin={isAdmin} showToast={showToast} />
+          <MusicPlayer isAdmin={isAdmin} showToast={showToast} />
 
-        <Manifestation
-          currentUser={currentUser}
-          onUpdateUser={handleUpdateUser}
-          showToast={showToast}
-        />
+          <Manifestation
+            currentUser={currentUser}
+            onUpdateUser={handleUpdateUser}
+            showToast={showToast}
+          />
 
-        {/* Dynamic view tabs switcher */}
-        <main className="flex-1 flex items-center justify-center pt-28 pb-32">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={activeTab}
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -15 }}
-              transition={{ duration: 0.5, ease: "easeInOut" }}
-              className="w-full h-full flex flex-col items-center justify-center"
-            >
-              {activeTab === "home" && (
-                <Hero
-                  isAdmin={isAdmin}
-                  onChangeTab={setActiveTab}
-                  showToast={showToast}
-                  onUpdateBg={setCustomBgUrl}
-                  customBgUrl={customBgUrl}
-                />
-              )}
-              {activeTab === "characters" && (
-                <CharacterSection isAdmin={isAdmin} showToast={showToast} />
-              )}
-              {activeTab === "confession" && (
-                <ConfessionNotes
-                  type="confession"
-                  currentUser={currentUser}
-                  isAdmin={isAdmin}
-                  showToast={showToast}
-                />
-              )}
-              {activeTab === "notes" && (
-                <ConfessionNotes
-                  type="notes"
-                  currentUser={currentUser}
-                  isAdmin={isAdmin}
-                  showToast={showToast}
-                />
-              )}
-              {activeTab === "socials" && <Socials />}
-            </motion.div>
-          </AnimatePresence>
-        </main>
+          {/* Dynamic view tabs switcher with elegant container structure */}
+          <main className="flex-1 flex items-center justify-center pt-28 pb-32">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeTab}
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -15 }}
+                transition={{ duration: 0.5, ease: "easeInOut" }}
+                className="w-full h-full flex flex-col items-center justify-center"
+              >
+                {activeTab === "home" && (
+                  <Hero
+                    isAdmin={isAdmin}
+                    onChangeTab={setActiveTab}
+                    showToast={showToast}
+                    onUpdateBg={setCustomBgUrl}
+                    customBgUrl={customBgUrl}
+                  />
+                )}
+                {activeTab === "characters" && (
+                  <CharacterSection isAdmin={isAdmin} showToast={showToast} />
+                )}
+                {activeTab === "confession" && (
+                  <ConfessionNotes
+                    type="confession"
+                    currentUser={currentUser}
+                    isAdmin={isAdmin}
+                    showToast={showToast}
+                  />
+                )}
+                {activeTab === "notes" && (
+                  <ConfessionNotes
+                    type="notes"
+                    currentUser={currentUser}
+                    isAdmin={isAdmin}
+                    showToast={showToast}
+                  />
+                )}
+                {activeTab === "socials" && <Socials />}
+              </motion.div>
+            </AnimatePresence>
+          </main>
 
-        {/* Footer Copyright detail */}
-        <footer className="fixed bottom-4 right-6 text-[10px] text-pink-600/75 select-none font-bold tracking-wider opacity-85 hover:opacity-100 transition z-40">
-          © 2026 DREAMY GARDEN by Ngu Hinh • ALL RIGHTS RESERVED
-        </footer>
-      </div>
+          {/* Footer Copyright detail */}
+          <footer className="fixed bottom-4 right-6 text-[10px] text-pink-600/75 select-none font-bold tracking-wider opacity-85 hover:opacity-100 transition z-40">
+            © 2026 DREAMY GARDEN • ALL RIGHTS RESERVED
+          </footer>
+        </div>
+      )}
     </div>
   );
 }
