@@ -2,8 +2,8 @@ import React, { useState, useEffect } from "react";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "../config/firebase";
 import { UserProfile } from "../types";
-// Đã xóa CheckCircle và AlertCircle đi vì không sử dụng tới
-import { Key, User, Shield, LogOut } from "lucide-react";
+import { Key, User, Shield, LogOut, X, Sparkles } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface AuthPanelProps {
   currentUser: UserProfile | null;
@@ -20,6 +20,11 @@ export default function AuthPanel({
   onLogout,
   showToast,
 }: AuthPanelProps) {
+  // Modal States
+  const [isOpen, setIsOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  
+  // Form States
   const [username, setUsername] = useState("");
   const [passcode, setPasscode] = useState("");
   const [loading, setLoading] = useState(false);
@@ -32,7 +37,6 @@ export default function AuthPanel({
       try {
         onLogin(JSON.parse(savedUser), savedAdmin);
       } catch (error) {
-        // Log lỗi ra để Vercel không báo lỗi "khai báo biến nhưng không dùng"
         console.error("Lỗi đọc dữ liệu user:", error);
         localStorage.removeItem("dreamy_user");
       }
@@ -49,7 +53,7 @@ export default function AuthPanel({
 
     setLoading(true);
 
-    // 1. Super Admin Easter Egg check (hardcoded as requested)
+    // 1. Super Admin check
     if (username.trim() === "nguhinh2026" && passcode.trim() === "30081997") {
       const adminProfile: UserProfile = {
         username: "nguhinh2026",
@@ -64,59 +68,76 @@ export default function AuthPanel({
       setLoading(false);
       setUsername("");
       setPasscode("");
+      setIsOpen(false);
       return;
     }
 
-    // 2. Regular User Database Auth
+    // 2. User Database Auth
     try {
       const sanitizedUsername = username.trim().toLowerCase();
       const userRef = doc(db, "users", sanitizedUsername);
       const userSnap = await getDoc(userRef);
 
-      if (userSnap.exists()) {
-        const userData = userSnap.data() as UserProfile;
-        if (userData.passcode === passcode) {
-          // Check last manifestation date to update streak
-          let updatedStreak = userData.currentStreak;
-          const todayStr = new Date().toISOString().split("T")[0];
-          const yesterdayStr = new Date(Date.now() - 86400000).toISOString().split("T")[0];
+      if (authMode === "login") {
+        // --- XỬ LÝ ĐĂNG NHẬP ---
+        if (userSnap.exists()) {
+          const userData = userSnap.data() as UserProfile;
+          if (userData.passcode === passcode.trim()) {
+            // Check streak
+            let updatedStreak = userData.currentStreak || 0;
+            const todayStr = new Date().toISOString().split("T")[0];
+            const yesterdayStr = new Date(Date.now() - 86400000).toISOString().split("T")[0];
 
-          if (userData.lastManifestDate) {
-            const lastDate = userData.lastManifestDate.split("T")[0];
-            if (lastDate !== todayStr && lastDate !== yesterdayStr) {
-              // Streak missed
-              updatedStreak = 0;
-              await setDoc(userRef, { ...userData, currentStreak: 0 }, { merge: true });
-              userData.currentStreak = 0;
+            if (userData.lastManifestDate) {
+              const lastDate = userData.lastManifestDate.split("T")[0];
+              if (lastDate !== todayStr && lastDate !== yesterdayStr) {
+                updatedStreak = 0;
+                await setDoc(userRef, { ...userData, currentStreak: 0 }, { merge: true });
+                userData.currentStreak = 0;
+              }
             }
-          }
 
-          localStorage.setItem("dreamy_user", JSON.stringify(userData));
-          localStorage.setItem("dreamy_admin", "false");
-          onLogin(userData, false);
-          showToast(`Chào mừng bạn trở lại, ${userData.username}! 🌸`, "success");
+            localStorage.setItem("dreamy_user", JSON.stringify(userData));
+            localStorage.setItem("dreamy_admin", "false");
+            onLogin(userData, false);
+            showToast(`Chào mừng bạn trở lại, ${userData.username}! 🌸`, "success");
+            setIsOpen(false);
+          } else {
+            showToast("Mật mã passcode không chính xác!", "error");
+          }
         } else {
-          showToast("Mật mã passcode không chính xác!", "error");
+          showToast("Tài khoản không tồn tại. Vui lòng chuyển sang Đăng ký!", "error");
         }
       } else {
-        // Register new user automatically
-        const newUser: UserProfile = {
-          username: username.trim(),
-          passcode: passcode.trim(),
-          currentStreak: 0,
-          lastManifestDate: null,
-          createdAt: new Date().toISOString(),
-        };
+        // --- XỬ LÝ ĐĂNG KÝ ---
+        if (userSnap.exists()) {
+          showToast("Tên người dùng đã được sử dụng. Vui lòng chọn tên khác!", "error");
+        } else {
+          if (passcode.trim().length < 4) {
+            showToast("Passcode quá ngắn. Vui lòng nhập tối thiểu 4 ký tự!", "error");
+            setLoading(false);
+            return;
+          }
 
-        await setDoc(userRef, newUser);
-        localStorage.setItem("dreamy_user", JSON.stringify(newUser));
-        localStorage.setItem("dreamy_admin", "false");
-        onLogin(newUser, false);
-        showToast(`Đăng ký thành công! Chào mừng ${newUser.username} đến với khu vườn.`, "success");
+          const newUser: UserProfile = {
+            username: username.trim(),
+            passcode: passcode.trim(),
+            currentStreak: 0,
+            lastManifestDate: null,
+            createdAt: new Date().toISOString(),
+          };
+
+          await setDoc(userRef, newUser);
+          localStorage.setItem("dreamy_user", JSON.stringify(newUser));
+          localStorage.setItem("dreamy_admin", "false");
+          onLogin(newUser, false);
+          showToast(`Đăng ký thành công! Chào mừng ${newUser.username} ✨`, "success");
+          setIsOpen(false);
+        }
       }
     } catch (err) {
       console.error(err);
-      showToast("Có lỗi xảy ra khi kết nối cơ sở dữ liệu!", "error");
+      showToast("Có lỗi xảy ra khi kết nối hệ thống!", "error");
     } finally {
       setLoading(false);
       setUsername("");
@@ -132,75 +153,151 @@ export default function AuthPanel({
   };
 
   return (
-    <div 
-      id="auth-panel" 
-      className="absolute top-6 left-6 z-[100] p-4 rounded-2xl glass-panel text-slate-800 w-64 shadow-lg transition-all duration-300 hover:shadow-pink-100/50"
-    >
-      {currentUser ? (
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase tracking-[2px] opacity-70 font-bold flex items-center gap-1">
-              {isAdmin ? <Shield className="w-3 h-3 text-pink-500 animate-pulse" /> : <User className="w-3 h-3 text-pink-400" />}
-              {isAdmin ? "Admin Portal" : "Dreamer"}
-            </span>
-            <button
-              onClick={handleSignOut}
-              className="text-slate-500 hover:text-pink-600 transition-colors p-1 rounded-full hover:bg-white/40"
-              title="Đăng xuất"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-            </button>
-          </div>
-          <p className="text-sm font-semibold truncate text-slate-800">
-            Hi, <span className="text-pink-600 font-bold">{currentUser.username}</span>
-          </p>
-          {!isAdmin && (
-            <p className="text-[11px] text-slate-600">
-              Streak: <span className="font-bold text-pink-500">✨ {currentUser.currentStreak} ngày</span>
-            </p>
-          )}
-          {isAdmin && (
-            <span className="text-[9px] bg-pink-100 text-pink-700 font-semibold px-2 py-0.5 rounded-full w-max">
-              Full Privileges
-            </span>
-          )}
-        </div>
-      ) : (
-        <form onSubmit={handleAuth} className="flex flex-col gap-2">
-          <div className="text-[10px] uppercase tracking-[2px] opacity-70 font-semibold text-slate-600">
-            Cổng Đăng Nhập
-          </div>
-          <div className="relative">
-            <User className="absolute left-2.5 top-2 w-3.5 h-3.5 text-slate-500" />
-            <input
-              type="text"
-              placeholder="Username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              disabled={loading}
-              className="bg-white/40 border border-white/50 rounded-lg pl-8 pr-3 py-1.5 text-xs placeholder-slate-500 outline-none w-full focus:bg-white/60 transition-colors focus:border-pink-300"
-            />
-          </div>
-          <div className="relative">
-            <Key className="absolute left-2.5 top-2 w-3.5 h-3.5 text-slate-500" />
-            <input
-              type="password"
-              placeholder="Passcode (8 số/ký tự)"
-              value={passcode}
-              onChange={(e) => setPasscode(e.target.value)}
-              disabled={loading}
-              className="bg-white/40 border border-white/50 rounded-lg pl-8 pr-3 py-1.5 text-xs placeholder-slate-500 outline-none w-full focus:bg-white/60 transition-colors focus:border-pink-300"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-gradient-to-r from-pink-400 to-purple-400 text-white font-bold py-1.5 rounded-lg text-xs hover:from-pink-500 hover:to-purple-500 transition-all duration-300 shadow-md shadow-pink-100 disabled:opacity-50"
+    <>
+      {/* NÚT HOẶC WIDGET LUÔN HIỂN THỊ TRÊN MÀN HÌNH (GÓC TRÁI TRÊN) */}
+      <div className="absolute top-6 left-6 z-[90]">
+        {currentUser ? (
+          // Đã đăng nhập: Hiện widget thông tin nhỏ gọn
+          <motion.div 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="p-3.5 rounded-2xl glass-panel text-slate-800 w-auto min-w-[200px] max-w-[260px] shadow-lg transition-all duration-300 hover:shadow-pink-100/50"
           >
-            {loading ? "Đang xử lý..." : "Bước vào vườn"}
-          </button>
-        </form>
-      )}
-    </div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-[10px] uppercase tracking-[2px] opacity-70 font-bold flex items-center gap-1.5">
+                {isAdmin ? <Shield className="w-3 h-3 text-pink-500 animate-pulse" /> : <User className="w-3 h-3 text-pink-400" />}
+                {isAdmin ? "Admin Portal" : "Dreamer"}
+              </span>
+              <button
+                onClick={handleSignOut}
+                className="text-slate-500 hover:text-rose-500 transition-colors p-1.5 rounded-full hover:bg-white/60 bg-white/30"
+                title="Đăng xuất"
+              >
+                <LogOut className="w-3 h-3" />
+              </button>
+            </div>
+            <p className="text-sm font-semibold truncate text-slate-800 mt-1">
+              Hi, <span className="text-pink-600 font-bold">{currentUser.username}</span>
+            </p>
+            {!isAdmin && (
+              <p className="text-[11px] text-slate-600 mt-0.5">
+                Streak: <span className="font-bold text-pink-500">✨ {currentUser.currentStreak} ngày</span>
+              </p>
+            )}
+            {isAdmin && (
+              <div className="mt-1">
+                <span className="text-[9px] bg-pink-100 text-pink-700 font-bold px-2 py-0.5 rounded-full">
+                  Full Privileges
+                </span>
+              </div>
+            )}
+          </motion.div>
+        ) : (
+          // Chưa đăng nhập: Nút Đăng nhập / Đăng ký nhỏ gọn
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setIsOpen(true)}
+            className="px-5 py-2.5 rounded-full glass-panel flex items-center gap-2 text-pink-600 font-bold text-xs shadow-md border border-white/50 hover:bg-white/60 transition-colors"
+          >
+            <User className="w-3.5 h-3.5" />
+            Đăng nhập / Đăng ký
+          </motion.button>
+        )}
+      </div>
+
+      {/* CỬA SỔ POPUP (MODAL) ĐĂNG NHẬP / ĐĂNG KÝ */}
+      <AnimatePresence>
+        {isOpen && !currentUser && (
+          <div className="fixed inset-0 z-[999] flex items-center justify-center bg-slate-900/30 backdrop-blur-md p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-white/80 backdrop-blur-xl border border-white/60 p-6 rounded-[32px] shadow-2xl w-full max-w-sm relative"
+            >
+              {/* Nút Đóng */}
+              <button
+                onClick={() => setIsOpen(false)}
+                className="absolute top-4 right-4 p-2 rounded-full bg-slate-100/50 hover:bg-slate-200 text-slate-600 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              <div className="flex flex-col items-center mb-6">
+                <div className="w-12 h-12 bg-pink-100 rounded-full flex items-center justify-center mb-2 shadow-inner">
+                  <Sparkles className="w-6 h-6 text-pink-500 animate-pulse" />
+                </div>
+                <h2 className="text-lg font-bold text-slate-800 font-display">
+                  Cổng Không Gian
+                </h2>
+                <p className="text-[11px] text-slate-500 font-medium">Bước vào thế giới mộng mơ</p>
+              </div>
+
+              {/* Tabs chuyển đổi Đăng nhập / Đăng ký */}
+              <div className="flex bg-slate-100/50 p-1 rounded-xl mb-5">
+                <button
+                  type="button"
+                  onClick={() => setAuthMode("login")}
+                  className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                    authMode === "login" ? "bg-white text-pink-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  Đăng Nhập
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAuthMode("register")}
+                  className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                    authMode === "register" ? "bg-white text-pink-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  Đăng Ký Mới
+                </button>
+              </div>
+
+              {/* Form nhập liệu */}
+              <form onSubmit={handleAuth} className="flex flex-col gap-3">
+                <div className="relative">
+                  <User className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+                  <input
+                    type="text"
+                    required
+                    placeholder="Tên người dùng (Username)"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    disabled={loading}
+                    className="bg-white border border-slate-200 rounded-xl pl-9 pr-4 py-2.5 text-xs placeholder-slate-400 outline-none w-full focus:border-pink-300 focus:ring-2 focus:ring-pink-100 transition-all"
+                  />
+                </div>
+                <div className="relative">
+                  <Key className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+                  <input
+                    type="password"
+                    required
+                    placeholder={authMode === "login" ? "Mật mã (Passcode)" : "Mật mã (tối thiểu 4 ký tự)"}
+                    value={passcode}
+                    onChange={(e) => setPasscode(e.target.value)}
+                    disabled={loading}
+                    className="bg-white border border-slate-200 rounded-xl pl-9 pr-4 py-2.5 text-xs placeholder-slate-400 outline-none w-full focus:border-pink-300 focus:ring-2 focus:ring-pink-100 transition-all"
+                  />
+                </div>
+                
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full mt-2 bg-gradient-to-r from-pink-400 to-purple-400 text-white font-bold py-3 rounded-xl text-xs hover:from-pink-500 hover:to-purple-500 transition-all duration-300 shadow-lg shadow-pink-200 disabled:opacity-50"
+                >
+                  {loading 
+                    ? "Đang xử lý..." 
+                    : (authMode === "login" ? "Tiến Vào Khu Vườn" : "Khởi Tạo Tài Khoản")
+                  }
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
