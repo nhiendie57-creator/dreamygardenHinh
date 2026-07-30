@@ -76,7 +76,7 @@ export default function Hero({
 
   return (
     <div className="flex flex-col items-center justify-center text-center z-10 px-4 mt-20 md:mt-24">
-      {/* Hiệu ứng chữ Dreamy (lấp lánh nhấp nháy nhẹ) + Garden (ombre chạy màu pastel hồng-tím-xanh) */}
+      {/* Dynamic Keyframe Styles for Shimmering Text, Ombre, and Glowing Shadows */}
       <style>{`
         @keyframes dreamyShimmer {
           0%, 100% {
@@ -148,7 +148,7 @@ export default function Hero({
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ delay: 0.8, duration: 1.2, ease: "easeOut" }}
-        className="flex flex-row flex-wrap items-center justify-center gap-2 md:gap-5 select-none max-w-full"
+        className="flex flex-row flex-wrap items-center justify-center gap-x-1 md:gap-x-2 gap-y-1 select-none max-w-full overflow-visible py-4"
       >
         <motion.span
           animate={{ y: [0, -6, 0] }}
@@ -158,8 +158,9 @@ export default function Hero({
         >
           Dreamy
         </motion.span>
+
         <span
-          className="garden-ombre font-script"
+          className="garden-ombre font-script inline-block"
           style={{ fontSize: "clamp(3.25rem, 11vw, 8rem)", lineHeight: 1.1 }}
         >
           Garden
