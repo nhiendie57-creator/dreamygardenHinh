@@ -160,8 +160,8 @@ export default function Hero({
         </motion.span>
 
         <span
-          className="garden-ombre font-script inline-block"
-          style={{ fontSize: "clamp(3.25rem, 11vw, 8rem)", lineHeight: 1.1 }}
+          className="garden-ombre font-display inline-block"
+          style={{ fontSize: "clamp(2.75rem, 9vw, 7rem)", lineHeight: 1.1 }}
         >
           Garden
         </span>
