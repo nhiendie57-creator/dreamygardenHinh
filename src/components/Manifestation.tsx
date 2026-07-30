@@ -3,7 +3,7 @@ import { doc, setDoc, arrayUnion } from "firebase/firestore";
 import { db } from "../config/firebase";
 import { UserProfile } from "../types";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Sparkles, Wand2, Info, Quote } from "lucide-react";
+import { Send, Wand2, Info, Quote, CheckCircle2 } from "lucide-react";
 
 interface ManifestationProps {
   currentUser: UserProfile | null;
@@ -18,6 +18,12 @@ interface StarParticle {
   delay: number;
 }
 
+// Hàm lấy ngày chuẩn theo giờ địa phương (tránh lỗi múi giờ quốc tế)
+const getLocalDateStr = (d: Date) => {
+  const offset = d.getTimezoneOffset() * 60000;
+  return new Date(d.getTime() - offset).toISOString().split("T")[0];
+};
+
 export default function Manifestation({
   currentUser,
   onUpdateUser,
@@ -29,11 +35,19 @@ export default function Manifestation({
   const [particles, setParticles] = useState<StarParticle[]>([]);
 
   // Tính toán ngày hiện tại và hôm qua
-  const todayStr = new Date().toISOString().split("T")[0];
-  const yesterdayStr = new Date(Date.now() - 86400000).toISOString().split("T")[0];
+  const todayStr = getLocalDateStr(new Date());
+  
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = getLocalDateStr(yesterday);
+
   const lastDate = currentUser?.lastManifestDate ? currentUser.lastManifestDate.split("T")[0] : null;
 
-  // Lọc số chuỗi HIỂN THỊ (Sửa logic: Nếu chưa từng manifest hoặc đã đứt chuỗi thì chắc chắn hiện 0)
+  // Kiểm tra xem hôm nay ĐÃ MANIFEST CHƯA
+  const hasManifestedToday = lastDate === todayStr;
+
+  // Lọc số chuỗi HIỂN THỊ 
+  // Nếu chưa từng manifest hoặc đã bỏ lỡ ngày hôm qua -> tạm hiển thị 0
   let displayStreak = currentUser?.currentStreak || 0;
   if (!lastDate || (lastDate !== todayStr && lastDate !== yesterdayStr)) {
     displayStreak = 0; 
@@ -60,15 +74,16 @@ export default function Manifestation({
     let newStreak = currentUser.currentStreak || 0;
     let streakIncreased = false;
 
-    if (lastDate === todayStr) {
-      // Đã manifest hôm nay rồi -> Không tăng chuỗi, giữ nguyên
+    if (hasManifestedToday) {
+      // Đã giữ chuỗi hôm nay rồi -> KHÔNG CỘNG THÊM, GIỮ NGUYÊN CHUỖI
+      newStreak = currentUser.currentStreak;
       streakIncreased = false;
     } else if (lastDate === yesterdayStr) {
-      // Ngày liên tiếp -> Cộng chuỗi
+      // Đã manifest hôm qua, nay viết tiếp -> Cộng thêm 1 ngày chuỗi
       newStreak += 1;
       streakIncreased = true;
     } else {
-      // Lần đầu tiên gửi HOẶC đã đứt chuỗi -> Reset đếm lại từ 1
+      // Lần đầu tiên viết HOẶC đã đứt chuỗi (nghỉ từ 2 ngày trở lên) -> Bắt đầu lại từ 1
       newStreak = 1;
       streakIncreased = true;
     }
@@ -76,7 +91,7 @@ export default function Manifestation({
     const currentWish = wish.trim();
 
     try {
-      // Save manifestation to Firestore
+      // Lưu lên Firestore
       const userRef = doc(db, "users", currentUser.username.toLowerCase());
       
       const updatedUser: UserProfile = {
@@ -99,7 +114,7 @@ export default function Manifestation({
         { merge: true }
       );
 
-      // Trigger the spectacular particle animation
+      // Hiệu ứng bay lên
       const generatedParticles = Array.from({ length: 15 }).map((_, i) => ({
         id: i + Date.now(),
         x: Math.random() * 200 - 100,
@@ -109,15 +124,15 @@ export default function Manifestation({
       setParticles(generatedParticles);
       setShowParticles(true);
 
-      // Reset form and update user state
+      // Reset form
       setWish("");
       setTimeout(() => {
         onUpdateUser(updatedUser);
         setShowParticles(false);
         if (streakIncreased) {
-          showToast(`Điều ước của bạn đã hóa thành cánh bướm bay vào vũ trụ! Streak tăng lên: ✨ ${newStreak} ngày`, "success");
+          showToast(`Điều ước cất cánh! Streak tăng lên: ✨ ${newStreak} ngày`, "success");
         } else {
-          showToast("Điều ước của bạn đã cất cánh bay vào vũ trụ rộng lớn! ✨", "success");
+          showToast("Vũ trụ đã ghi nhận thêm điều ước của bạn! ✨ (Chuỗi đã được giữ trước đó)", "info");
         }
       }, 1800);
 
@@ -134,7 +149,6 @@ export default function Manifestation({
       id="manifestation-streak" 
       className="absolute bottom-8 right-8 z-[100] text-right"
     >
-      {/* Đã mở rộng khung từ w-72 lên w-[340px] và tăng padding để nhìn thoáng đãng hơn */}
       <div className="bg-white/25 backdrop-blur-lg border border-white/40 p-5 rounded-[32px] shadow-xl w-[340px] relative overflow-hidden transition-all duration-300 hover:shadow-pink-100/50">
         
         {/* Particle Overlay */}
@@ -169,7 +183,6 @@ export default function Manifestation({
           </span>
           {currentUser ? (
             <motion.div 
-              // Đã thêm whitespace-nowrap để chữ không bao giờ bị rớt dòng
               className="text-[11px] font-bold text-pink-500 bg-pink-50/90 px-3 py-1.5 rounded-full shadow-sm border border-pink-100 whitespace-nowrap flex items-center gap-1"
               animate={{ scale: [1, 1.02, 1] }}
               transition={{ repeat: Infinity, duration: 2 }}
@@ -198,6 +211,14 @@ export default function Manifestation({
           </div>
         )}
 
+        {/* Thông báo đã giữ chuỗi */}
+        {hasManifestedToday && (
+          <div className="mb-3 flex items-center justify-center gap-1.5 bg-green-50/80 border border-green-200/60 text-green-600 text-[10px] font-bold py-1.5 px-3 rounded-lg shadow-sm">
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            Bạn đã giữ chuỗi hôm nay! (Có thể gửi thêm)
+          </div>
+        )}
+
         {currentUser ? (
           <form onSubmit={handleSendWish} className="relative">
             <AnimatePresence mode="wait">
@@ -212,7 +233,7 @@ export default function Manifestation({
                     type="text"
                     value={wish}
                     onChange={(e) => setWish(e.target.value)}
-                    placeholder="Hôm nay bạn muốn gửi điều gì vào vũ trụ?... 💫"
+                    placeholder={hasManifestedToday ? "Viết thêm điều ước gửi vào không gian..." : "Hôm nay bạn muốn gửi điều gì vào vũ trụ?... 💫"}
                     className="w-full bg-white/50 border border-white/60 rounded-xl px-4 py-3.5 text-xs outline-none pr-10 italic text-slate-800 placeholder-slate-400 focus:bg-white/80 focus:border-pink-300 transition-colors shadow-sm"
                   />
                   <button
