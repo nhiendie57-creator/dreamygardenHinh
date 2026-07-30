@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "../config/firebase";
 import { UserProfile } from "../types";
-import { Key, User, Shield, LogOut, CheckCircle, AlertCircle } from "lucide-react";
+// Đã xóa CheckCircle và AlertCircle đi vì không sử dụng tới
+import { Key, User, Shield, LogOut } from "lucide-react";
 
 interface AuthPanelProps {
   currentUser: UserProfile | null;
@@ -30,10 +31,13 @@ export default function AuthPanel({
     if (savedUser) {
       try {
         onLogin(JSON.parse(savedUser), savedAdmin);
-      } catch (e) {
+      } catch (error) {
+        // Log lỗi ra để Vercel không báo lỗi "khai báo biến nhưng không dùng"
+        console.error("Lỗi đọc dữ liệu user:", error);
         localStorage.removeItem("dreamy_user");
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleAuth = async (e: React.FormEvent) => {
