@@ -3,15 +3,17 @@ import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "./config/firebase";
 import { UserProfile, TabType } from "./types";
 import { motion, AnimatePresence } from "motion/react";
-import { AlertCircle, CheckCircle, Info, ShieldCheck } from "lucide-react";
+import { AlertCircle, CheckCircle, Info } from "lucide-react";
 
 // Components
-import BackgroundOverlay from "./components/BackgroundOverlay";
+import BackgroundEffects from "./components/BackgroundEffects";
 import Navbar from "./components/Navbar";
 import AuthPanel from "./components/AuthPanel";
 import MusicPlayer from "./components/MusicPlayer";
 import Manifestation from "./components/Manifestation";
+import Hero from "./components/Hero";
 import CharacterSection from "./components/CharacterSection";
+import ConfessionNotes from "./components/ConfessionNotes";
 import Socials from "./components/Socials";
 
 interface Toast {
@@ -40,7 +42,6 @@ export default function App() {
   useEffect(() => {
     const docRef = doc(db, "settings", "app");
     
-    // Realtime listen to background customization
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
@@ -72,10 +73,10 @@ export default function App() {
 
   return (
     <div className="relative min-h-screen w-full select-none overflow-x-hidden flex flex-col font-sans-dreamy">
-      {/* 1. Layer base interactive celestial background overlay */}
-      <BackgroundOverlay customBgUrl={customBgUrl} />
+      {/* Background Effects mượt mà */}
+      <BackgroundEffects customBgUrl={customBgUrl} />
 
-      {/* 2. Global Glassmorphism Toast Floating Notification Container */}
+      {/* Global Toast Floating Notifications */}
       <div className="fixed top-24 right-6 z-[9999] flex flex-col gap-2 max-w-sm w-full pointer-events-none">
         <AnimatePresence>
           {toasts.map((t) => (
@@ -96,13 +97,13 @@ export default function App() {
         </AnimatePresence>
       </div>
 
-      {/* 3. Active Admin Super Admin pill warning in Top-Center */}
-      {isAdmin && (
+      {/* Admin pill warning in Top-Center */}
+      {isAdmin && currentUser && (
         <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[150] pointer-events-none">
           <motion.div
             initial={{ y: -30, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            className="bg-pink-100/90 backdrop-blur-md border border-pink-300 text-pink-700 px-4 py-1.5 rounded-full text-[11px] font-bold tracking-wide shadow-md flex items-center gap-1.5 shadow-pink-100/50"
+            className="bg-pink-100/90 backdrop-blur-md border border-pink-300 text-pink-700 px-4 py-1.5 rounded-full text-[11px] font-bold tracking-wide shadow-md flex items-center gap-1.5"
           >
             <CheckCircle className="w-4 h-4 text-pink-500 animate-pulse" />
             Bạn đang thao tác với vai trò là quản trị viên của Dreamy Garden
@@ -110,9 +111,8 @@ export default function App() {
         </div>
       )}
 
-      {/* 4. Core Interface Shell components */}
+      {/* Core Interface Shell components */}
       <div className="flex-1 flex flex-col w-full relative min-h-screen">
-        {/* Fixed Layout Modules */}
         <AuthPanel
           currentUser={currentUser}
           isAdmin={isAdmin}
@@ -131,7 +131,7 @@ export default function App() {
           showToast={showToast}
         />
 
-        {/* Dynamic view tabs switcher with elegant container structure */}
+        {/* Dynamic view tabs switcher */}
         <main className="flex-1 flex items-center justify-center pt-28 pb-32">
           <AnimatePresence mode="wait">
             <motion.div
@@ -143,16 +143,32 @@ export default function App() {
               className="w-full h-full flex flex-col items-center justify-center"
             >
               {activeTab === "home" && (
-                <div className="text-pink-600/60 font-medium tracking-wide">Trang chủ đang được cập nhật...</div>
+                <Hero
+                  isAdmin={isAdmin}
+                  onChangeTab={setActiveTab}
+                  showToast={showToast}
+                  onUpdateBg={setCustomBgUrl}
+                  customBgUrl={customBgUrl}
+                />
               )}
               {activeTab === "characters" && (
                 <CharacterSection isAdmin={isAdmin} showToast={showToast} />
               )}
               {activeTab === "confession" && (
-                <div className="text-pink-600/60 font-medium tracking-wide">Tính năng Confession đang được cập nhật...</div>
+                <ConfessionNotes
+                  type="confession"
+                  currentUser={currentUser}
+                  isAdmin={isAdmin}
+                  showToast={showToast}
+                />
               )}
               {activeTab === "notes" && (
-                <div className="text-pink-600/60 font-medium tracking-wide">Tính năng Notes đang được cập nhật...</div>
+                <ConfessionNotes
+                  type="notes"
+                  currentUser={currentUser}
+                  isAdmin={isAdmin}
+                  showToast={showToast}
+                />
               )}
               {activeTab === "socials" && <Socials />}
             </motion.div>
@@ -161,7 +177,7 @@ export default function App() {
 
         {/* Footer Copyright detail */}
         <footer className="fixed bottom-4 right-6 text-[10px] text-pink-600/75 select-none font-bold tracking-wider opacity-85 hover:opacity-100 transition z-40">
-          © 2026 DREAMY GARDEN • ALL RIGHTS RESERVED
+          © 2026 DREAMY GARDEN by Ngu Hinh • ALL RIGHTS RESERVED
         </footer>
       </div>
     </div>
