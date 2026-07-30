@@ -1,9 +1,9 @@
 import React, { useState } from "react";
-import { doc, setDoc, updateDoc, arrayUnion } from "firebase/firestore";
+import { doc, setDoc, arrayUnion } from "firebase/firestore";
 import { db } from "../config/firebase";
 import { UserProfile } from "../types";
-import { motion, AnimatePresence } from "motion/react";
-import { Send, Sparkles, Wand2, Info } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Send, Sparkles, Wand2, Info, Quote } from "lucide-react";
 
 interface ManifestationProps {
   currentUser: UserProfile | null;
@@ -28,6 +28,21 @@ export default function Manifestation({
   const [showParticles, setShowParticles] = useState(false);
   const [particles, setParticles] = useState<StarParticle[]>([]);
 
+  // Tính toán ngày hiện tại và hôm qua
+  const todayStr = new Date().toISOString().split("T")[0];
+  const yesterdayStr = new Date(Date.now() - 86400000).toISOString().split("T")[0];
+  const lastDate = currentUser?.lastManifestDate ? currentUser.lastManifestDate.split("T")[0] : null;
+
+  // Lọc số chuỗi HIỂN THỊ (Xóa chuỗi ảo nếu đã đứt chuỗi)
+  let displayStreak = currentUser?.currentStreak || 0;
+  if (lastDate && lastDate !== todayStr && lastDate !== yesterdayStr) {
+    displayStreak = 0; // Đứt chuỗi thì tạm hiện 0
+  }
+
+  // Lấy câu Manifest gần nhất trong lịch sử
+  const historyList = currentUser?.manifestHistory || [];
+  const lastWish = historyList.length > 0 ? historyList[historyList.length - 1].wish : null;
+
   const handleSendWish = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser) {
@@ -42,23 +57,18 @@ export default function Manifestation({
 
     setIsSending(true);
 
-    // Calculate dates
-    const todayStr = new Date().toISOString().split("T")[0];
-    const yesterdayStr = new Date(Date.now() - 86400000).toISOString().split("T")[0];
-    const lastDate = currentUser.lastManifestDate ? currentUser.lastManifestDate.split("T")[0] : null;
-
     let newStreak = currentUser.currentStreak;
     let streakIncreased = false;
 
     if (lastDate === todayStr) {
-      // Already manifested today
+      // Đã manifest hôm nay rồi -> Không tăng chuỗi
       streakIncreased = false;
     } else if (lastDate === yesterdayStr) {
-      // Consecutive day
+      // Ngày liên tiếp -> Cộng chuỗi
       newStreak += 1;
       streakIncreased = true;
     } else {
-      // First time or missed a day
+      // Lần đầu tiên hoặc đã đứt chuỗi -> Reset về 1 ngày
       newStreak = 1;
       streakIncreased = true;
     }
@@ -73,6 +83,8 @@ export default function Manifestation({
         ...currentUser,
         currentStreak: newStreak,
         lastManifestDate: todayStr,
+        // Cập nhật mảng lịch sử ở local để hiển thị ngay lập tức
+        manifestHistory: [...historyList, { wish: currentWish, date: new Date().toISOString() }],
       };
 
       await setDoc(
@@ -161,12 +173,27 @@ export default function Manifestation({
               animate={{ scale: [1, 1.05, 1] }}
               transition={{ repeat: Infinity, duration: 2 }}
             >
-              ✨ {currentUser.currentStreak} Ngày Nhiệm Màu
+              ✨ {displayStreak} Ngày Nhiệm Màu
             </motion.span>
           ) : (
             <span className="text-[9px] font-semibold text-slate-500">Chưa Đăng Nhập</span>
           )}
         </div>
+
+        {/* Khung hiển thị câu manifest gần nhất */}
+        {currentUser && lastWish && (
+          <div className="mb-3 bg-pink-50/60 rounded-xl p-2.5 border border-pink-100/50 relative flex gap-2 items-start shadow-inner text-left">
+            <Quote className="w-3 h-3 text-pink-400 flex-shrink-0 mt-0.5" />
+            <div className="flex flex-col">
+              <span className="text-[9px] font-bold text-pink-500 uppercase tracking-wider mb-0.5">
+                Vũ trụ đã ghi nhận:
+              </span>
+              <p className="text-[10px] text-slate-600 italic leading-relaxed line-clamp-2">
+                "{lastWish}"
+              </p>
+            </div>
+          </div>
+        )}
 
         {currentUser ? (
           <form onSubmit={handleSendWish} className="relative">
