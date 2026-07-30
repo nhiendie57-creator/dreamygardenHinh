@@ -81,12 +81,14 @@ export default function Hero({
         @keyframes dreamyShimmer {
           0%, 100% {
             text-shadow:
+              0 2px 6px rgba(40, 20, 80, 0.55),
               0 0 10px rgba(255,255,255,0.9),
               0 0 20px rgba(255,255,255,0.6),
               0 0 35px rgba(200,220,255,0.5);
           }
           50% {
             text-shadow:
+              0 2px 8px rgba(40, 20, 80, 0.65),
               0 0 18px rgba(255,255,255,1),
               0 0 32px rgba(255,255,255,0.85),
               0 0 55px rgba(200,220,255,0.75);
@@ -105,12 +107,14 @@ export default function Hero({
 
         @keyframes gardenGlow {
           0%, 100% {
-            filter: drop-shadow(0 0 8px rgba(190, 60, 130, 0.65))
+            filter: drop-shadow(0 2px 6px rgba(30, 15, 70, 0.55))
+                    drop-shadow(0 0 8px rgba(106, 47, 217, 0.65))
                     drop-shadow(0 0 18px rgba(120, 60, 190, 0.5))
                     drop-shadow(0 0 30px rgba(60, 90, 190, 0.4));
           }
           50% {
-            filter: drop-shadow(0 0 14px rgba(190, 60, 130, 0.85))
+            filter: drop-shadow(0 2px 8px rgba(30, 15, 70, 0.65))
+                    drop-shadow(0 0 14px rgba(106, 47, 217, 0.85))
                     drop-shadow(0 0 28px rgba(120, 60, 190, 0.7))
                     drop-shadow(0 0 46px rgba(60, 90, 190, 0.55));
           }
@@ -119,10 +123,10 @@ export default function Hero({
         .garden-ombre {
           background: linear-gradient(
             90deg,
-            #e0468f 0%,
+            #6a2fd9 0%,
             #9b4de0 33%,
             #4d7de0 66%,
-            #e0468f 100%
+            #6a2fd9 100%
           );
           background-size: 300% auto;
           -webkit-background-clip: text;
@@ -131,12 +135,14 @@ export default function Hero({
           color: transparent;
           animation: gardenOmbre 6s ease-in-out infinite, gardenGlow 2.6s ease-in-out infinite;
         }
-      `}</style>
 
-      {/* Lớp kính mờ phía sau khối tiêu đề để chữ luôn rõ trên mọi ảnh nền */}
-      <div className="absolute inset-0 -z-10 flex items-center justify-center">
-        <div className="w-[92vw] max-w-4xl h-[70%] rounded-[48px] bg-black/18 backdrop-blur-md" />
-      </div>
+        .quote-halo {
+          text-shadow:
+            0 1px 3px rgba(255,255,255,0.9),
+            0 0 14px rgba(255,255,255,0.75),
+            0 0 28px rgba(255,255,255,0.5);
+        }
+      `}</style>
 
       {/* Small Eyebrow Label */}
       <motion.span
@@ -177,7 +183,7 @@ export default function Hero({
         initial={{ opacity: 0 }}
         animate={{ opacity: 0.85 }}
         transition={{ delay: 1.2, duration: 1 }}
-        className="max-w-md md:max-w-xl text-xs md:text-sm text-slate-800 font-bold italic tracking-wide mt-6 leading-relaxed"
+        className="max-w-md md:max-w-xl text-xs md:text-sm text-slate-800 font-bold italic tracking-wide mt-6 leading-relaxed quote-halo"
       >
         "Nơi thời gian dừng lại bên lề của những đám mây ngũ sắc, để bạn lắng nghe khúc nhạc ngọt ngào của những tâm hồn đầy mơ mộng..."
       </motion.p>
@@ -191,7 +197,7 @@ export default function Hero({
       >
         <button
           onClick={() => onChangeTab("characters")}
-          className="px-6 py-2.5 bg-gradient-to-r from-pink-400 to-purple-400 hover:from-pink-500 hover:to-purple-500 text-white rounded-full text-xs font-bold tracking-wider shadow-lg shadow-pink-200/50 hover:scale-105 transition-all flex items-center gap-1.5"
+          className="px-6 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white rounded-full text-xs font-bold tracking-wider shadow-lg shadow-violet-300/50 hover:scale-105 transition-all flex items-center gap-1.5"
         >
           Khám phá nhân vật
           <ArrowRight className="w-3.5 h-3.5" />
@@ -201,7 +207,7 @@ export default function Hero({
           className="px-6 py-2.5 bg-white/40 hover:bg-white/70 text-slate-800 rounded-full text-xs font-bold tracking-wider border border-white/60 hover:scale-105 transition-all flex items-center gap-1.5"
         >
           Để lại lời nhắn
-          <Sparkles className="w-3.5 h-3.5 text-pink-500" />
+          <Sparkles className="w-3.5 h-3.5 text-violet-600" />
         </button>
       </motion.div>
 
