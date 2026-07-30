@@ -33,10 +33,10 @@ export default function Manifestation({
   const yesterdayStr = new Date(Date.now() - 86400000).toISOString().split("T")[0];
   const lastDate = currentUser?.lastManifestDate ? currentUser.lastManifestDate.split("T")[0] : null;
 
-  // Lọc số chuỗi HIỂN THỊ (Xóa chuỗi ảo nếu đã đứt chuỗi)
+  // Lọc số chuỗi HIỂN THỊ (Sửa logic: Nếu chưa từng manifest hoặc đã đứt chuỗi thì chắc chắn hiện 0)
   let displayStreak = currentUser?.currentStreak || 0;
-  if (lastDate && lastDate !== todayStr && lastDate !== yesterdayStr) {
-    displayStreak = 0; // Đứt chuỗi thì tạm hiện 0
+  if (!lastDate || (lastDate !== todayStr && lastDate !== yesterdayStr)) {
+    displayStreak = 0; 
   }
 
   // Lấy câu Manifest gần nhất trong lịch sử
@@ -57,18 +57,18 @@ export default function Manifestation({
 
     setIsSending(true);
 
-    let newStreak = currentUser.currentStreak;
+    let newStreak = currentUser.currentStreak || 0;
     let streakIncreased = false;
 
     if (lastDate === todayStr) {
-      // Đã manifest hôm nay rồi -> Không tăng chuỗi
+      // Đã manifest hôm nay rồi -> Không tăng chuỗi, giữ nguyên
       streakIncreased = false;
     } else if (lastDate === yesterdayStr) {
       // Ngày liên tiếp -> Cộng chuỗi
       newStreak += 1;
       streakIncreased = true;
     } else {
-      // Lần đầu tiên hoặc đã đứt chuỗi -> Reset về 1 ngày
+      // Lần đầu tiên gửi HOẶC đã đứt chuỗi -> Reset đếm lại từ 1
       newStreak = 1;
       streakIncreased = true;
     }
@@ -83,7 +83,6 @@ export default function Manifestation({
         ...currentUser,
         currentStreak: newStreak,
         lastManifestDate: todayStr,
-        // Cập nhật mảng lịch sử ở local để hiển thị ngay lập tức
         manifestHistory: [...historyList, { wish: currentWish, date: new Date().toISOString() }],
       };
 
@@ -103,8 +102,8 @@ export default function Manifestation({
       // Trigger the spectacular particle animation
       const generatedParticles = Array.from({ length: 15 }).map((_, i) => ({
         id: i + Date.now(),
-        x: Math.random() * 200 - 100, // horizontal spreading
-        y: -Math.random() * 150 - 50, // floating high up
+        x: Math.random() * 200 - 100,
+        y: -Math.random() * 150 - 50,
         delay: Math.random() * 0.4,
       }));
       setParticles(generatedParticles);
@@ -135,9 +134,10 @@ export default function Manifestation({
       id="manifestation-streak" 
       className="absolute bottom-8 right-8 z-[100] text-right"
     >
-      <div className="bg-white/25 backdrop-blur-lg border border-white/40 p-4 rounded-3xl shadow-xl w-72 relative overflow-hidden transition-all duration-300 hover:shadow-pink-100/50">
+      {/* Đã mở rộng khung từ w-72 lên w-[340px] và tăng padding để nhìn thoáng đãng hơn */}
+      <div className="bg-white/25 backdrop-blur-lg border border-white/40 p-5 rounded-[32px] shadow-xl w-[340px] relative overflow-hidden transition-all duration-300 hover:shadow-pink-100/50">
         
-        {/* Particle Overlay for the dissolve animation */}
+        {/* Particle Overlay */}
         <AnimatePresence>
           {showParticles && (
             <div className="absolute inset-0 pointer-events-none z-50 flex items-center justify-center">
@@ -162,33 +162,36 @@ export default function Manifestation({
           )}
         </AnimatePresence>
 
-        <div className="flex justify-between items-center mb-3">
-          <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase flex items-center gap-1">
-            <Wand2 className="w-3 h-3 text-purple-400" />
+        <div className="flex justify-between items-center mb-4 gap-2">
+          <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase flex items-center gap-1.5 whitespace-nowrap">
+            <Wand2 className="w-3.5 h-3.5 text-purple-400" />
             Manifestation
           </span>
           {currentUser ? (
-            <motion.span 
-              className="text-xs font-bold text-pink-500 bg-pink-50 px-2.5 py-0.5 rounded-full shadow-inner border border-pink-100"
-              animate={{ scale: [1, 1.05, 1] }}
+            <motion.div 
+              // Đã thêm whitespace-nowrap để chữ không bao giờ bị rớt dòng
+              className="text-[11px] font-bold text-pink-500 bg-pink-50/90 px-3 py-1.5 rounded-full shadow-sm border border-pink-100 whitespace-nowrap flex items-center gap-1"
+              animate={{ scale: [1, 1.02, 1] }}
               transition={{ repeat: Infinity, duration: 2 }}
             >
               ✨ {displayStreak} Ngày Nhiệm Màu
-            </motion.span>
+            </motion.div>
           ) : (
-            <span className="text-[9px] font-semibold text-slate-500">Chưa Đăng Nhập</span>
+            <span className="text-[10px] font-semibold text-slate-500 bg-white/40 px-2 py-1 rounded-full">
+              Chưa Đăng Nhập
+            </span>
           )}
         </div>
 
         {/* Khung hiển thị câu manifest gần nhất */}
-        {currentUser && lastWish && (
-          <div className="mb-3 bg-pink-50/60 rounded-xl p-2.5 border border-pink-100/50 relative flex gap-2 items-start shadow-inner text-left">
-            <Quote className="w-3 h-3 text-pink-400 flex-shrink-0 mt-0.5" />
+        {currentUser && lastWish && displayStreak > 0 && (
+          <div className="mb-4 bg-pink-50/70 rounded-xl p-3 border border-pink-100/60 relative flex gap-2.5 items-start shadow-inner text-left">
+            <Quote className="w-3.5 h-3.5 text-pink-400 flex-shrink-0 mt-0.5" />
             <div className="flex flex-col">
-              <span className="text-[9px] font-bold text-pink-500 uppercase tracking-wider mb-0.5">
+              <span className="text-[9px] font-bold text-pink-500 uppercase tracking-wider mb-1">
                 Vũ trụ đã ghi nhận:
               </span>
-              <p className="text-[10px] text-slate-600 italic leading-relaxed line-clamp-2">
+              <p className="text-[11px] text-slate-600 italic leading-relaxed line-clamp-2">
                 "{lastWish}"
               </p>
             </div>
@@ -210,11 +213,11 @@ export default function Manifestation({
                     value={wish}
                     onChange={(e) => setWish(e.target.value)}
                     placeholder="Hôm nay bạn muốn gửi điều gì vào vũ trụ?... 💫"
-                    className="w-full bg-white/40 border border-white/50 rounded-xl px-4 py-3 text-xs outline-none pr-10 italic text-slate-800 placeholder-slate-500 focus:bg-white/60 focus:border-pink-300 transition-colors"
+                    className="w-full bg-white/50 border border-white/60 rounded-xl px-4 py-3.5 text-xs outline-none pr-10 italic text-slate-800 placeholder-slate-400 focus:bg-white/80 focus:border-pink-300 transition-colors shadow-sm"
                   />
                   <button
                     type="submit"
-                    className="absolute right-3 top-2.5 text-pink-400 hover:text-pink-600 active:scale-90 transition-all p-1"
+                    className="absolute right-3 top-3 text-pink-400 hover:text-pink-600 active:scale-90 transition-all p-1 bg-white/50 hover:bg-white rounded-full shadow-sm"
                     title="Phóng điều ước lên vũ trụ"
                   >
                     <Send className="w-3.5 h-3.5" />
@@ -223,7 +226,7 @@ export default function Manifestation({
               ) : (
                 <motion.div
                   key="sending-stage"
-                  className="flex flex-col items-center justify-center py-2"
+                  className="flex flex-col items-center justify-center py-3"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                 >
@@ -235,8 +238,8 @@ export default function Manifestation({
             </AnimatePresence>
           </form>
         ) : (
-          <div className="text-center py-2 text-xs text-slate-600/80 italic flex items-center justify-center gap-1">
-            <Info className="w-3 h-3 text-slate-500" />
+          <div className="text-center py-3 text-xs text-slate-500 italic flex items-center justify-center gap-1.5 bg-white/30 rounded-xl">
+            <Info className="w-3.5 h-3.5" />
             Vui lòng đăng nhập để gửi điều ước!
           </div>
         )}
