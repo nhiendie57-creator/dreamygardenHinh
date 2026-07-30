@@ -6,15 +6,12 @@ import { motion, AnimatePresence } from "motion/react";
 import { AlertCircle, CheckCircle, Info, ShieldCheck } from "lucide-react";
 
 // Components
-import Intro from "./components/Intro";
 import BackgroundOverlay from "./components/BackgroundOverlay";
 import Navbar from "./components/Navbar";
 import AuthPanel from "./components/AuthPanel";
 import MusicPlayer from "./components/MusicPlayer";
 import Manifestation from "./components/Manifestation";
-import Hero from "./components/Hero";
 import CharacterSection from "./components/CharacterSection";
-import ConfessionNotes from "./components/ConfessionNotes";
 import Socials from "./components/Socials";
 
 interface Toast {
@@ -24,7 +21,6 @@ interface Toast {
 }
 
 export default function App() {
-  const [showIntro, setShowIntro] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>("home");
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -76,13 +72,10 @@ export default function App() {
 
   return (
     <div className="relative min-h-screen w-full select-none overflow-x-hidden flex flex-col font-sans-dreamy">
-      {/* 1. Dramatic Opening Winged Envelope Intro */}
-      <Intro onComplete={() => setShowIntro(false)} />
-
-      {/* 2. Layer base interactive celestial background overlay */}
+      {/* 1. Layer base interactive celestial background overlay */}
       <BackgroundOverlay customBgUrl={customBgUrl} />
 
-      {/* 3. Global Glassmorphism Toast Floating Notification Container */}
+      {/* 2. Global Glassmorphism Toast Floating Notification Container */}
       <div className="fixed top-24 right-6 z-[9999] flex flex-col gap-2 max-w-sm w-full pointer-events-none">
         <AnimatePresence>
           {toasts.map((t) => (
@@ -103,8 +96,8 @@ export default function App() {
         </AnimatePresence>
       </div>
 
-      {/* 4. Active Admin Super Admin pill warning in Top-Center */}
-      {isAdmin && !showIntro && (
+      {/* 3. Active Admin Super Admin pill warning in Top-Center */}
+      {isAdmin && (
         <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[150] pointer-events-none">
           <motion.div
             initial={{ y: -30, opacity: 0 }}
@@ -117,78 +110,60 @@ export default function App() {
         </div>
       )}
 
-      {/* 5. Core Interface Shell components */}
-      {!showIntro && (
-        <div className="flex-1 flex flex-col w-full relative min-h-screen">
-          {/* Fixed Layout Modules */}
-          <AuthPanel
-            currentUser={currentUser}
-            isAdmin={isAdmin}
-            onLogin={handleLogin}
-            onLogout={handleLogout}
-            showToast={showToast}
-          />
+      {/* 4. Core Interface Shell components */}
+      <div className="flex-1 flex flex-col w-full relative min-h-screen">
+        {/* Fixed Layout Modules */}
+        <AuthPanel
+          currentUser={currentUser}
+          isAdmin={isAdmin}
+          onLogin={handleLogin}
+          onLogout={handleLogout}
+          showToast={showToast}
+        />
 
-          <Navbar activeTab={activeTab} onChangeTab={setActiveTab} />
+        <Navbar activeTab={activeTab} onChangeTab={setActiveTab} />
 
-          <MusicPlayer isAdmin={isAdmin} showToast={showToast} />
+        <MusicPlayer isAdmin={isAdmin} showToast={showToast} />
 
-          <Manifestation
-            currentUser={currentUser}
-            onUpdateUser={handleUpdateUser}
-            showToast={showToast}
-          />
+        <Manifestation
+          currentUser={currentUser}
+          onUpdateUser={handleUpdateUser}
+          showToast={showToast}
+        />
 
-          {/* Dynamic view tabs switcher with elegant container structure */}
-          <main className="flex-1 flex items-center justify-center pt-28 pb-32">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={activeTab}
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -15 }}
-                transition={{ duration: 0.5, ease: "easeInOut" }}
-                className="w-full h-full flex flex-col items-center justify-center"
-              >
-                {activeTab === "home" && (
-                  <Hero
-                    isAdmin={isAdmin}
-                    onChangeTab={setActiveTab}
-                    showToast={showToast}
-                    onUpdateBg={setCustomBgUrl}
-                    customBgUrl={customBgUrl}
-                  />
-                )}
-                {activeTab === "characters" && (
-                  <CharacterSection isAdmin={isAdmin} showToast={showToast} />
-                )}
-                {activeTab === "confession" && (
-                  <ConfessionNotes
-                    type="confession"
-                    currentUser={currentUser}
-                    isAdmin={isAdmin}
-                    showToast={showToast}
-                  />
-                )}
-                {activeTab === "notes" && (
-                  <ConfessionNotes
-                    type="notes"
-                    currentUser={currentUser}
-                    isAdmin={isAdmin}
-                    showToast={showToast}
-                  />
-                )}
-                {activeTab === "socials" && <Socials />}
-              </motion.div>
-            </AnimatePresence>
-          </main>
+        {/* Dynamic view tabs switcher with elegant container structure */}
+        <main className="flex-1 flex items-center justify-center pt-28 pb-32">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              transition={{ duration: 0.5, ease: "easeInOut" }}
+              className="w-full h-full flex flex-col items-center justify-center"
+            >
+              {activeTab === "home" && (
+                <div className="text-pink-600/60 font-medium tracking-wide">Trang chủ đang được cập nhật...</div>
+              )}
+              {activeTab === "characters" && (
+                <CharacterSection isAdmin={isAdmin} showToast={showToast} />
+              )}
+              {activeTab === "confession" && (
+                <div className="text-pink-600/60 font-medium tracking-wide">Tính năng Confession đang được cập nhật...</div>
+              )}
+              {activeTab === "notes" && (
+                <div className="text-pink-600/60 font-medium tracking-wide">Tính năng Notes đang được cập nhật...</div>
+              )}
+              {activeTab === "socials" && <Socials />}
+            </motion.div>
+          </AnimatePresence>
+        </main>
 
-          {/* Footer Copyright detail */}
-          <footer className="fixed bottom-4 right-6 text-[10px] text-pink-600/75 select-none font-bold tracking-wider opacity-85 hover:opacity-100 transition z-40">
-            © 2026 DREAMY GARDEN • ALL RIGHTS RESERVED
-          </footer>
-        </div>
-      )}
+        {/* Footer Copyright detail */}
+        <footer className="fixed bottom-4 right-6 text-[10px] text-pink-600/75 select-none font-bold tracking-wider opacity-85 hover:opacity-100 transition z-40">
+          © 2026 DREAMY GARDEN • ALL RIGHTS RESERVED
+        </footer>
+      </div>
     </div>
   );
 }
