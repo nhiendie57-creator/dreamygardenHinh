@@ -75,7 +75,7 @@ export default function Hero({
   };
 
   return (
-    <div className="flex flex-col items-center justify-center text-center z-10 px-4 mt-20 md:mt-24">
+    <div className="relative flex flex-col items-center justify-center text-center z-10 px-4 mt-20 md:mt-24">
       {/* Dynamic Keyframe Styles for Shimmering Text, Ombre, and Glowing Shadows */}
       <style>{`
         @keyframes dreamyShimmer {
@@ -105,24 +105,24 @@ export default function Hero({
 
         @keyframes gardenGlow {
           0%, 100% {
-            filter: drop-shadow(0 0 10px rgba(255, 179, 209, 0.7))
-                    drop-shadow(0 0 22px rgba(217, 179, 255, 0.55))
-                    drop-shadow(0 0 38px rgba(179, 212, 255, 0.4));
+            filter: drop-shadow(0 0 8px rgba(190, 60, 130, 0.65))
+                    drop-shadow(0 0 18px rgba(120, 60, 190, 0.5))
+                    drop-shadow(0 0 30px rgba(60, 90, 190, 0.4));
           }
           50% {
-            filter: drop-shadow(0 0 16px rgba(255, 179, 209, 0.9))
-                    drop-shadow(0 0 34px rgba(217, 179, 255, 0.75))
-                    drop-shadow(0 0 58px rgba(179, 212, 255, 0.6));
+            filter: drop-shadow(0 0 14px rgba(190, 60, 130, 0.85))
+                    drop-shadow(0 0 28px rgba(120, 60, 190, 0.7))
+                    drop-shadow(0 0 46px rgba(60, 90, 190, 0.55));
           }
         }
 
         .garden-ombre {
           background: linear-gradient(
             90deg,
-            #ffb3d1 0%,
-            #d9b3ff 33%,
-            #b3d4ff 66%,
-            #ffb3d1 100%
+            #e0468f 0%,
+            #9b4de0 33%,
+            #4d7de0 66%,
+            #e0468f 100%
           );
           background-size: 300% auto;
           -webkit-background-clip: text;
@@ -133,12 +133,17 @@ export default function Hero({
         }
       `}</style>
 
+      {/* Lớp kính mờ phía sau khối tiêu đề để chữ luôn rõ trên mọi ảnh nền */}
+      <div className="absolute inset-0 -z-10 flex items-center justify-center">
+        <div className="w-[92vw] max-w-4xl h-[70%] rounded-[48px] bg-black/18 backdrop-blur-md" />
+      </div>
+
       {/* Small Eyebrow Label */}
       <motion.span
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 0.8, y: 0 }}
         transition={{ delay: 0.5, duration: 0.8 }}
-        className="text-[11px] md:text-xs uppercase tracking-[4px] md:tracking-[6px] text-white italic font-semibold mb-2"
+        className="text-[11px] md:text-xs uppercase tracking-[4px] md:tracking-[6px] text-white italic font-semibold mb-2 [text-shadow:0_1px_6px_rgba(0,0,0,0.55)]"
       >
         Crafted by Ngu Hinh
       </motion.span>
