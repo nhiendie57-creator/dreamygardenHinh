@@ -78,6 +78,38 @@ export default function BackgroundOverlay({ customBgUrl }: BackgroundOverlayProp
           }}
         />
       ))}
+
+      {/* Lớp sương mờ ảo chuyển động, phủ nhẹ lên trên ảnh nền và các hiệu ứng phía trên
+          để chữ/nội dung ở lớp trên cùng luôn dễ đọc hơn, kể cả khi dùng ảnh nền phức tạp */}
+      <motion.div
+        className="absolute -inset-[10%] rounded-full"
+        style={{
+          background:
+            "radial-gradient(circle at 30% 40%, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.15) 40%, transparent 70%)",
+          filter: "blur(60px)",
+        }}
+        animate={{
+          x: ["-5%", "5%", "-5%"],
+          y: ["-3%", "3%", "-3%"],
+          opacity: [0.5, 0.75, 0.5],
+        }}
+        transition={{ duration: 14, repeat: Infinity, ease: "easeInOut" }}
+      />
+      <motion.div
+        className="absolute -inset-[10%] rounded-full"
+        style={{
+          background:
+            "radial-gradient(circle at 70% 65%, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.12) 45%, transparent 75%)",
+          filter: "blur(70px)",
+        }}
+        animate={{
+          x: ["6%", "-6%", "6%"],
+          y: ["4%", "-4%", "4%"],
+          opacity: [0.4, 0.65, 0.4],
+        }}
+        transition={{ duration: 18, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+      />
+      <div className="absolute inset-0 bg-white/10 backdrop-blur-[2px]" />
     </div>
   );
 }
