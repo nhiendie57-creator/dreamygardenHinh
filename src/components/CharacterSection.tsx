@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import { collection, doc, onSnapshot, updateDoc, setDoc, deleteDoc, addDoc, query, orderBy } from "firebase/firestore";
 import { db } from "../config/firebase";
 import { Character } from "../types";
-import { motion, AnimatePresence } from "motion/react";
+// Đã sửa lại tên thư viện chuẩn để Vercel không báo lỗi
+import { motion, AnimatePresence } from "framer-motion";
 import { Heart, Plus, Trash2, Edit2, X, Eye, Sparkles, Upload, Loader2, Save } from "lucide-react";
 
 interface CharacterSectionProps {
@@ -202,7 +203,8 @@ export default function CharacterSection({ isAdmin, showToast }: CharacterSectio
       showToast("Không thể xóa nhân vật mặc định!", "error");
       return;
     }
-    if (confirm(`Bạn có chắc chắn muốn xóa nhân vật ${name}?`)) {
+    // Sửa thêm chữ window. để Vercel không báo lỗi undefined confirm
+    if (window.confirm(`Bạn có chắc chắn muốn xóa nhân vật ${name}?`)) {
       try {
         await deleteDoc(doc(db, "characters", id));
         showToast(`Đã xóa nhân vật ${name}.`, "info");
