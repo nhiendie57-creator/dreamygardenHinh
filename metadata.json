@@ -1,0 +1,8 @@
+{
+  "name": "Dreamy Garden",
+  "description": "Giao diện trưng bày nhân vật (Character Cards) kết hợp âm nhạc, nhật ký tâm sự, và chuỗi Manifest đầy phép màu nhiệm trên nền mây trời thơ mộng.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
