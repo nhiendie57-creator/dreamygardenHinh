@@ -1,9 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { collection, getDocs, addDoc, query, orderBy } from "firebase/firestore";
-// Import thêm các hàm của Firebase Storage
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage"; 
-// Gọi biến storage từ file config của chị
-import { db, storage } from "../config/firebase"; 
+import { db } from "../config/firebase";
 import { Song } from "../types";
 import { Plus, Loader2, Music, ListMusic, Link as LinkIcon, UploadCloud } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -37,7 +34,7 @@ export default function MusicPlayer({ isAdmin, showToast }: MusicPlayerProps) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [showPlaylist, setShowPlaylist] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [uploadMode, setUploadMode] = useState<"url" | "file">("url");
+  const [uploadMode, setUploadMode] = useState<"url" | "file">("file"); // Ưu tiên tab tải file
 
   // Form States
   const [songTitle, setSongTitle] = useState("");
@@ -112,7 +109,7 @@ export default function MusicPlayer({ isAdmin, showToast }: MusicPlayerProps) {
     setShowPlaylist(false);
   };
 
-  // Add Song to Firestore & Storage
+  // Tải nhạc: Kết hợp đúng chuẩn Cloudinary + Firebase giống web cũ
   const handleAddSong = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!songTitle || !songArtist) {
@@ -137,19 +134,23 @@ export default function MusicPlayer({ isAdmin, showToast }: MusicPlayerProps) {
           setLoading(false);
           return;
         }
-        showToast("Đang tải nhạc lên Firebase... ☁", "info");
-        
-        // 1. Tạo vị trí lưu file trên Firebase Storage (Thư mục: songs)
-        const fileRef = ref(storage, `songs/${Date.now()}_${mp3File.name}`);
-        
-        // 2. Tải file lên Firebase
-        await uploadBytes(fileRef, mp3File);
-        
-        // 3. Lấy đường dẫn URL trả về
-        finalUrl = await getDownloadURL(fileRef);
+        showToast("Đang tải file MP3 lên Cloudinary... ☁", "info");
+        const formData = new FormData();
+        formData.append("file", mp3File);
+        formData.append("upload_preset", "dreamy_garden_preset");
+
+        // Gọi thẳng vào endpoint 'video' vì Cloudinary xếp file âm thanh là video
+        const response = await fetch("https://api.cloudinary.com/v1_1/i7upt5gk/video/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!response.ok) throw new Error("Lỗi tải MP3 lên Cloudinary");
+        const data = await response.json();
+        finalUrl = data.secure_url; // Lấy link Cloudinary trả về
       }
 
-      // Save metadata to Firestore Database
+      // Lưu Link vừa lấy được vào Firestore Firebase
       const newSongData = {
         title: songTitle.trim(),
         artist: songArtist.trim(),
@@ -162,7 +163,7 @@ export default function MusicPlayer({ isAdmin, showToast }: MusicPlayerProps) {
 
       // Update Local State
       setSongs((prev) => [newSong, ...prev]);
-      showToast("Bài hát mới đã được gieo mầm thành công! 🌱🎵", "success");
+      showToast("Bài hát mới đã được thêm vào vườn! 🌱🎵", "success");
 
       // Reset fields
       setSongTitle("");
@@ -172,7 +173,7 @@ export default function MusicPlayer({ isAdmin, showToast }: MusicPlayerProps) {
       setShowAddForm(false);
     } catch (err) {
       console.error(err);
-      showToast("Có lỗi xảy ra khi lưu nhạc lên Firebase!", "error");
+      showToast("Có lỗi xảy ra khi lưu nhạc!", "error");
     } finally {
       setLoading(false);
     }
@@ -210,17 +211,17 @@ export default function MusicPlayer({ isAdmin, showToast }: MusicPlayerProps) {
             <div className="flex bg-white/50 rounded-lg p-1">
               <button
                 type="button"
-                onClick={() => setUploadMode("url")}
-                className={`flex-1 text-[10px] font-bold py-1.5 rounded-md flex items-center justify-center gap-1 transition-colors ${uploadMode === "url" ? "bg-pink-100 text-pink-600 shadow-sm" : "text-slate-500 hover:bg-white/40"}`}
-              >
-                <LinkIcon className="w-3 h-3" /> Dán Link
-              </button>
-              <button
-                type="button"
                 onClick={() => setUploadMode("file")}
                 className={`flex-1 text-[10px] font-bold py-1.5 rounded-md flex items-center justify-center gap-1 transition-colors ${uploadMode === "file" ? "bg-pink-100 text-pink-600 shadow-sm" : "text-slate-500 hover:bg-white/40"}`}
               >
                 <UploadCloud className="w-3 h-3" /> Tải File MP3
+              </button>
+              <button
+                type="button"
+                onClick={() => setUploadMode("url")}
+                className={`flex-1 text-[10px] font-bold py-1.5 rounded-md flex items-center justify-center gap-1 transition-colors ${uploadMode === "url" ? "bg-pink-100 text-pink-600 shadow-sm" : "text-slate-500 hover:bg-white/40"}`}
+              >
+                <LinkIcon className="w-3 h-3" /> Dán Link
               </button>
             </div>
 
@@ -245,7 +246,7 @@ export default function MusicPlayer({ isAdmin, showToast }: MusicPlayerProps) {
               <input
                 type="url"
                 required
-                placeholder="Dán link đuôi .mp3 vào đây"
+                placeholder="Dán link nhạc vào đây"
                 value={songUrl}
                 onChange={(e) => setSongUrl(e.target.value)}
                 className="w-full bg-white/60 border border-pink-200/50 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:bg-white"
@@ -366,14 +367,12 @@ export default function MusicPlayer({ isAdmin, showToast }: MusicPlayerProps) {
 
       </div>
 
-      {/* Hidden Audio Ref */}
       <audio
         ref={audioRef}
         onEnded={handleAudioEnded}
         style={{ display: "none" }}
       />
 
-      {/* Audio style tag for Marquee */}
       <style>{`
         @keyframes marquee {
           0% { transform: translateX(0%); }
