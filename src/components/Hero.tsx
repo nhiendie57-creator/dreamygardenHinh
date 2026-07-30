@@ -135,16 +135,20 @@ export default function Hero({
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ delay: 0.8, duration: 1.2, ease: "easeOut" }}
-        className="flex flex-col md:flex-row items-center gap-2 md:gap-5 select-none"
+        className="flex flex-row flex-wrap items-center justify-center gap-2 md:gap-5 select-none max-w-full"
       >
         <motion.span
           animate={{ y: [0, -6, 0] }}
           transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut" }}
-          className="dreamy-shimmer text-6xl md:text-8xl font-display text-white"
+          className="dreamy-shimmer font-display text-white"
+          style={{ fontSize: "clamp(2.75rem, 9vw, 7rem)", lineHeight: 1.1 }}
         >
           Dreamy
         </motion.span>
-        <span className="garden-ombre text-7xl md:text-9xl font-script">
+        <span
+          className="garden-ombre font-script"
+          style={{ fontSize: "clamp(3.25rem, 11vw, 8rem)", lineHeight: 1.1 }}
+        >
           Garden
         </span>
       </motion.h1>
