@@ -10,21 +10,7 @@ interface MusicPlayerProps {
   showToast: (message: string, type: "success" | "error" | "info") => void;
 }
 
-const DEFAULT_SONGS: Song[] = [
-  {
-    id: "default-1",
-    title: "Lover's Whisper - Soft Acoustic",
-    artist: "Dreamy Beats",
-    url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
-  },
-  {
-    id: "default-2",
-    title: "Midnight Dream - Lofi Piano",
-    artist: "Ngu Hinh",
-    url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
-  },
-];
-
+const DEFAULT_SONGS: Song[] = [];
 export default function MusicPlayer({ isAdmin, showToast }: MusicPlayerProps) {
   const [songs, setSongs] = useState<Song[]>(DEFAULT_SONGS);
   const [currentSongIndex, setCurrentSongIndex] = useState(0);
