@@ -76,7 +76,7 @@ export default function Hero({
 
   return (
     <div className="flex flex-col items-center justify-center text-center z-10 px-4 mt-20 md:mt-24">
-      {/* Dynamic Keyframe Styles for Shimmering Text, Ombre, and Sparkling Glowing Shadows */}
+      {/* Hiệu ứng chữ Dreamy (lấp lánh nhấp nháy nhẹ) + Garden (ombre chạy màu pastel hồng-tím-xanh) */}
       <style>{`
         @keyframes dreamyShimmer {
           0%, 100% {
@@ -103,6 +103,19 @@ export default function Hero({
           100% { background-position: 0% 50%; }
         }
 
+        @keyframes gardenGlow {
+          0%, 100% {
+            filter: drop-shadow(0 0 10px rgba(255, 179, 209, 0.7))
+                    drop-shadow(0 0 22px rgba(217, 179, 255, 0.55))
+                    drop-shadow(0 0 38px rgba(179, 212, 255, 0.4));
+          }
+          50% {
+            filter: drop-shadow(0 0 16px rgba(255, 179, 209, 0.9))
+                    drop-shadow(0 0 34px rgba(217, 179, 255, 0.75))
+                    drop-shadow(0 0 58px rgba(179, 212, 255, 0.6));
+          }
+        }
+
         .garden-ombre {
           background: linear-gradient(
             90deg,
@@ -116,32 +129,7 @@ export default function Hero({
           background-clip: text;
           -webkit-text-fill-color: transparent;
           color: transparent;
-          animation: gardenOmbre 6s ease-in-out infinite;
-        }
-
-        @keyframes gardenGlowSparkle {
-          0%, 100% {
-            text-shadow: 
-              0 0 14px rgba(255, 179, 209, 0.9),
-              0 0 28px rgba(217, 179, 255, 0.75),
-              0 0 50px rgba(179, 212, 255, 0.6);
-            transform: scale(0.995);
-            opacity: 0.85;
-          }
-          50% {
-            text-shadow: 
-              0 0 22px rgba(255, 179, 209, 1),
-              0 0 48px rgba(217, 179, 255, 0.95),
-              0 0 80px rgba(179, 212, 255, 0.85);
-            transform: scale(1.005);
-            opacity: 1;
-          }
-        }
-
-        .garden-glow {
-          color: rgba(255, 179, 209, 0.35);
-          animation: gardenGlowSparkle 3.2s ease-in-out infinite;
-          transform-origin: center;
+          animation: gardenOmbre 6s ease-in-out infinite, gardenGlow 2.6s ease-in-out infinite;
         }
       `}</style>
 
@@ -160,7 +148,7 @@ export default function Hero({
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ delay: 0.8, duration: 1.2, ease: "easeOut" }}
-        className="flex flex-row flex-wrap items-center justify-center gap-x-1 md:gap-x-2 gap-y-1 select-none max-w-full overflow-visible"
+        className="flex flex-row flex-wrap items-center justify-center gap-2 md:gap-5 select-none max-w-full"
       >
         <motion.span
           animate={{ y: [0, -6, 0] }}
@@ -170,23 +158,11 @@ export default function Hero({
         >
           Dreamy
         </motion.span>
-
-        {/* Dual-layered design to prevent background-clip edge crop-outs and render beautiful sparkling glow shadows */}
-        <span className="relative inline-block px-1 py-1 overflow-visible">
-          {/* Layer 1: Glowing under-layer */}
-          <span
-            className="absolute inset-0 flex items-center justify-center font-script garden-glow text-center whitespace-nowrap select-none pointer-events-none"
-            style={{ fontSize: "clamp(3.25rem, 11vw, 8rem)", lineHeight: 1.1 }}
-          >
-            Garden
-          </span>
-          {/* Layer 2: Main ombre-colored gradient-clipped text */}
-          <span
-            className="relative z-10 block font-script garden-ombre text-center whitespace-nowrap"
-            style={{ fontSize: "clamp(3.25rem, 11vw, 8rem)", lineHeight: 1.1 }}
-          >
-            Garden
-          </span>
+        <span
+          className="garden-ombre font-script"
+          style={{ fontSize: "clamp(3.25rem, 11vw, 8rem)", lineHeight: 1.1 }}
+        >
+          Garden
         </span>
       </motion.h1>
 
