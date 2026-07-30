@@ -9,7 +9,6 @@ export default function Intro({ onComplete }: IntroProps) {
   const [visible, setVisible] = useState(true);
 
   useEffect(() => {
-    // Không còn cảnh mở cửa -> vào thẳng chữ, tự tắt sau vài giây
     const timer = setTimeout(() => {
       setVisible(false);
       onComplete();
@@ -20,20 +19,19 @@ export default function Intro({ onComplete }: IntroProps) {
 
   return (
     <>
-      {/* Font script bay bổng, giống kiểu "Dream Big" */}
+      {/* Cormorant Garamond: hỗ trợ đầy đủ dấu tiếng Việt, nét thanh mảnh thơ mộng */}
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Mrs+Saint+Delafield&family=Alex+Brush&family=Montserrat:wght@300;400;500&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=Montserrat:wght@400;500;600&display=swap');
 
         .font-dreamy-main {
-          font-family: 'Mrs Saint Delafield', cursive;
+          font-family: 'Cormorant Garamond', serif;
+          font-style: italic;
+          font-weight: 600;
         }
 
-        .font-dreamy-sub {
-          font-family: 'Alex Brush', cursive;
-        }
-
-        .font-sans-elegant {
+        .font-welcome {
           font-family: 'Montserrat', sans-serif;
+          font-weight: 500;
         }
 
         .glow-text {
@@ -69,7 +67,7 @@ export default function Intro({ onComplete }: IntroProps) {
               animate={{ y: 0, scale: 1, opacity: 1 }}
               transition={{ duration: 1.2, delay: 0.3, ease: "easeOut" }}
             >
-              <p className="font-sans-elegant text-white text-sm md:text-lg tracking-[0.2em] uppercase mb-4 drop-shadow-md">
+              <p className="font-welcome text-white text-base md:text-xl tracking-[0.1em] mb-4 drop-shadow-md">
                 Chào mừng bạn đến với
               </p>
 
@@ -92,7 +90,7 @@ export default function Intro({ onComplete }: IntroProps) {
                 <h1 className="font-dreamy-main glow-text leading-tight px-8 text-6xl md:text-8xl lg:text-9xl">
                   Thế giới mộng mơ
                 </h1>
-                <h2 className="font-dreamy-sub glow-text mt-2 text-5xl md:text-7xl lg:text-8xl">
+                <h2 className="font-dreamy-main glow-text mt-2 text-5xl md:text-7xl lg:text-8xl">
                   của Hinh
                 </h2>
               </div>
