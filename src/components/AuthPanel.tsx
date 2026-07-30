@@ -51,6 +51,12 @@ export default function AuthPanel({
       return;
     }
 
+    // Kiểm tra bắt buộc đủ 8 ký tự khi đăng ký mới (trừ tài khoản admin nguhinh2026)
+    if (authMode === "register" && passcode.trim().length !== 8 && username.trim() !== "nguhinh2026") {
+      showToast("Passcode phải đúng đủ 8 số/ký tự!", "error");
+      return;
+    }
+
     setLoading(true);
 
     // 1. Super Admin check
@@ -113,12 +119,6 @@ export default function AuthPanel({
         if (userSnap.exists()) {
           showToast("Tên người dùng đã được sử dụng. Vui lòng chọn tên khác!", "error");
         } else {
-          if (passcode.trim().length < 4) {
-            showToast("Passcode quá ngắn. Vui lòng nhập tối thiểu 4 ký tự!", "error");
-            setLoading(false);
-            return;
-          }
-
           const newUser: UserProfile = {
             username: username.trim(),
             passcode: passcode.trim(),
@@ -157,7 +157,6 @@ export default function AuthPanel({
       {/* NÚT HOẶC WIDGET LUÔN HIỂN THỊ TRÊN MÀN HÌNH (GÓC TRÁI TRÊN) */}
       <div className="absolute top-6 left-6 z-[90]">
         {currentUser ? (
-          // Đã đăng nhập: Hiện widget thông tin nhỏ gọn
           <motion.div 
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -193,7 +192,6 @@ export default function AuthPanel({
             )}
           </motion.div>
         ) : (
-          // Chưa đăng nhập: Nút Đăng nhập / Đăng ký nhỏ gọn
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
@@ -275,11 +273,12 @@ export default function AuthPanel({
                   <input
                     type="password"
                     required
-                    placeholder={authMode === "login" ? "Mật mã (Passcode)" : "Mật mã (tối thiểu 4 ký tự)"}
+                    maxLength={8}
+                    placeholder={authMode === "login" ? "Mật mã (Passcode)" : "Mật mã (Đủ 8 số/ký tự)"}
                     value={passcode}
                     onChange={(e) => setPasscode(e.target.value)}
                     disabled={loading}
-                    className="bg-white border border-slate-200 rounded-xl pl-9 pr-4 py-2.5 text-xs placeholder-slate-400 outline-none w-full focus:border-pink-300 focus:ring-2 focus:ring-pink-100 transition-all"
+                    className="bg-white border border-slate-200 rounded-xl pl-9 pr-4 py-2.5 text-xs placeholder-slate-400 outline-none w-full focus:border-pink-300 focus:ring-2 focus:ring-pink-100 transition-all tracking-widest"
                   />
                 </div>
                 
