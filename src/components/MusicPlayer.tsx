@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { collection, getDocs, addDoc, query, orderBy } from "firebase/firestore";
-import { db } from "../config/firebase";
+// Import thêm các hàm của Firebase Storage
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage"; 
+// Gọi biến storage từ file config của chị
+import { db, storage } from "../config/firebase"; 
 import { Song } from "../types";
 import { Plus, Loader2, Music, ListMusic, Link as LinkIcon, UploadCloud } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -109,7 +112,7 @@ export default function MusicPlayer({ isAdmin, showToast }: MusicPlayerProps) {
     setShowPlaylist(false);
   };
 
-  // Add Song to Firestore (Support both Direct URL and File Upload)
+  // Add Song to Firestore & Storage
   const handleAddSong = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!songTitle || !songArtist) {
@@ -134,22 +137,19 @@ export default function MusicPlayer({ isAdmin, showToast }: MusicPlayerProps) {
           setLoading(false);
           return;
         }
-        showToast("Đang cưỡi mây tải nhạc lên... ☁", "info");
-        const formData = new FormData();
-        formData.append("file", mp3File);
-        formData.append("upload_preset", "dreamy_garden_preset");
-
-        const response = await fetch("https://api.cloudinary.com/v1_1/i7upt5gk/auto/upload", {
-          method: "POST",
-          body: formData,
-        });
-
-        if (!response.ok) throw new Error("Lỗi tải MP3");
-        const data = await response.json();
-        finalUrl = data.secure_url;
+        showToast("Đang tải nhạc lên Firebase... ☁", "info");
+        
+        // 1. Tạo vị trí lưu file trên Firebase Storage (Thư mục: songs)
+        const fileRef = ref(storage, `songs/${Date.now()}_${mp3File.name}`);
+        
+        // 2. Tải file lên Firebase
+        await uploadBytes(fileRef, mp3File);
+        
+        // 3. Lấy đường dẫn URL trả về
+        finalUrl = await getDownloadURL(fileRef);
       }
 
-      // Save metadata to Firestore
+      // Save metadata to Firestore Database
       const newSongData = {
         title: songTitle.trim(),
         artist: songArtist.trim(),
@@ -172,7 +172,7 @@ export default function MusicPlayer({ isAdmin, showToast }: MusicPlayerProps) {
       setShowAddForm(false);
     } catch (err) {
       console.error(err);
-      showToast("Có lỗi xảy ra khi lưu nhạc!", "error");
+      showToast("Có lỗi xảy ra khi lưu nhạc lên Firebase!", "error");
     } finally {
       setLoading(false);
     }
@@ -220,7 +220,7 @@ export default function MusicPlayer({ isAdmin, showToast }: MusicPlayerProps) {
                 onClick={() => setUploadMode("file")}
                 className={`flex-1 text-[10px] font-bold py-1.5 rounded-md flex items-center justify-center gap-1 transition-colors ${uploadMode === "file" ? "bg-pink-100 text-pink-600 shadow-sm" : "text-slate-500 hover:bg-white/40"}`}
               >
-                <UploadCloud className="w-3 h-3" /> Tải File
+                <UploadCloud className="w-3 h-3" /> Tải File MP3
               </button>
             </div>
 
