@@ -76,6 +76,50 @@ export default function Hero({
 
   return (
     <div className="flex flex-col items-center justify-center text-center z-10 px-4 mt-20 md:mt-24">
+      {/* Hiệu ứng chữ Dreamy (lấp lánh nhấp nháy nhẹ) + Garden (ombre chạy màu pastel hồng-tím-xanh) */}
+      <style>{`
+        @keyframes dreamyShimmer {
+          0%, 100% {
+            text-shadow:
+              0 0 10px rgba(255,255,255,0.9),
+              0 0 20px rgba(255,255,255,0.6),
+              0 0 35px rgba(200,220,255,0.5);
+          }
+          50% {
+            text-shadow:
+              0 0 18px rgba(255,255,255,1),
+              0 0 32px rgba(255,255,255,0.85),
+              0 0 55px rgba(200,220,255,0.75);
+          }
+        }
+
+        .dreamy-shimmer {
+          animation: dreamyShimmer 2.6s ease-in-out infinite;
+        }
+
+        @keyframes gardenOmbre {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+
+        .garden-ombre {
+          background: linear-gradient(
+            90deg,
+            #ffb3d1 0%,
+            #d9b3ff 33%,
+            #b3d4ff 66%,
+            #ffb3d1 100%
+          );
+          background-size: 300% auto;
+          -webkit-background-clip: text;
+          background-clip: text;
+          -webkit-text-fill-color: transparent;
+          color: transparent;
+          animation: gardenOmbre 6s ease-in-out infinite;
+        }
+      `}</style>
+
       {/* Small Eyebrow Label */}
       <motion.span
         initial={{ opacity: 0, y: -10 }}
@@ -93,10 +137,14 @@ export default function Hero({
         transition={{ delay: 0.8, duration: 1.2, ease: "easeOut" }}
         className="flex flex-col md:flex-row items-center gap-2 md:gap-5 select-none"
       >
-        <span className="text-6xl md:text-8xl font-display text-white text-glow-pearl">
+        <motion.span
+          animate={{ y: [0, -6, 0] }}
+          transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut" }}
+          className="dreamy-shimmer text-6xl md:text-8xl font-display text-white"
+        >
           Dreamy
-        </span>
-        <span className="text-7xl md:text-9xl font-script text-pink-400 text-glow-pink">
+        </motion.span>
+        <span className="garden-ombre text-7xl md:text-9xl font-script">
           Garden
         </span>
       </motion.h1>
