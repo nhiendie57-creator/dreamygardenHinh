@@ -3,8 +3,8 @@ import { collection, addDoc, query, orderBy, onSnapshot, limit, deleteDoc, doc }
 import { db } from "../config/firebase";
 import { ConfessionNote, UserProfile } from "../types";
 import { motion, AnimatePresence } from "motion/react";
-// Đã thay Trash2 thành X
-import { Send, Heart, X, Calendar, Smile, ShieldAlert, Sparkles, MessageCircleCode } from "lucide-react";
+// Thay đổi các icon phù hợp với ý tưởng / góp ý
+import { Send, Heart, X, Calendar, Lightbulb, Sparkles, MessageCircleCode } from "lucide-react";
 
 interface ConfessionNotesProps {
   type: "confession" | "notes";
@@ -13,10 +13,7 @@ interface ConfessionNotesProps {
   showToast: (message: string, type: "success" | "error" | "info") => void;
 }
 
-// Đã xóa sạch thư tâm sự mặc định
 const DEFAULT_CONFESSIONS: ConfessionNote[] = [];
-
-// Đã xóa sạch sổ tay nhật ký mặc định
 const DEFAULT_NOTES: ConfessionNote[] = [];
 
 export default function ConfessionNotes({
@@ -67,12 +64,17 @@ export default function ConfessionNotes({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!content.trim()) {
-      showToast("Vui lòng viết nội dung ghi chú nhé!", "error");
+      showToast(
+        type === "confession" 
+          ? "Vui lòng viết nội dung ghi chú nhé!" 
+          : "Vui lòng nhập ý tưởng của bạn nhé!", 
+        "error"
+      );
       return;
     }
 
     if (type === "notes" && !currentUser) {
-      showToast("Vui lòng đăng nhập để lưu trữ sổ tay cá nhân của bạn! ✨", "info");
+      showToast("Vui lòng đăng nhập để gửi góp ý ý tưởng của bạn! ✨", "info");
       return;
     }
 
@@ -93,7 +95,7 @@ export default function ConfessionNotes({
       showToast(
         type === "confession"
           ? "Thư tâm sự đã được ghim lên bảng mây! 💌"
-          : "Ghi chú nhật ký đã được cất giữ cẩn thận! 📔",
+          : "Ý tưởng sáng tạo của bạn đã được ghi nhận! 💡✨",
         "success"
       );
 
@@ -116,11 +118,10 @@ export default function ConfessionNotes({
 
     const collectionName = type === "confession" ? "confessions" : "notes";
 
-    // Thêm chữ window. để Vercel không báo lỗi undefined confirm
-    if (window.confirm("Bạn có chắc muốn tháo dỡ ghi chú này khỏi bức tường thơ mộng?")) {
+    if (window.confirm("Bạn có chắc muốn tháo dỡ nội dung này khỏi khu vườn?")) {
       try {
         await deleteDoc(doc(db, collectionName, id));
-        showToast("Đã tháo gỡ ghi chú thành công.", "info");
+        showToast("Đã tháo gỡ thành công.", "info");
       } catch (err) {
         console.error(err);
         showToast("Thao tác tháo gỡ thất bại!", "error");
@@ -139,26 +140,35 @@ export default function ConfessionNotes({
             </>
           ) : (
             <>
-              <Sparkles className="w-6 h-6 text-purple-400 animate-spin-slow" />
-              Sổ Tay Lưu Giữ Giấc Mơ (Dream Notes)
+              <Lightbulb className="w-6 h-6 text-amber-300 animate-bounce" />
+              Góc Sáng Tạo & Góp Ý Idea (Idea Box)
             </>
           )}
         </h2>
         <p className="text-xs text-slate-700/80 font-medium mt-1">
           {type === "confession"
             ? "Nơi gieo mầm những lời thì thầm ngọt ngào, những tâm tư chưa thể gọi tên..."
-            : "Cuốn nhật ký lãng mạn ghi chép những suy tư lơ lửng giữa tinh vân kẹo ngọt."}
+            : "Cùng gieo mầm những ý tưởng mới mẻ và đóng góp ý kiến để khu vườn ngày càng hoàn thiện."}
         </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
         
-        {/* Creator Note form */}
+        {/* Creator Form */}
         <div className="lg:col-span-1 p-6 rounded-[32px] glass-panel border border-pink-200/50 shadow-xl text-slate-800">
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <h3 className="text-sm font-bold text-pink-600 tracking-wider uppercase flex items-center gap-1.5 border-b border-pink-100 pb-2">
-              <Smile className="w-4 h-4" />
-              {type === "confession" ? "Gửi Tâm Sự Thầm Kín" : "Viết Nhật Ký Mộng Mơ"}
+              {type === "confession" ? (
+                <>
+                  <Sparkles className="w-4 h-4" />
+                  Gửi Tâm Sự Thầm Kín
+                </>
+              ) : (
+                <>
+                  <Lightbulb className="w-4 h-4 text-amber-500" />
+                  Góp Ý Ý Tưởng Mới
+                </>
+              )}
             </h3>
 
             {type === "confession" && (
@@ -176,7 +186,7 @@ export default function ConfessionNotes({
 
             <div className="flex flex-col gap-1">
               <label className="text-[11px] font-bold text-slate-600">
-                {type === "confession" ? "Lời thầm thì ngọt ngào" : "Những giấc mơ hôm nay..."}
+                {type === "confession" ? "Lời thầm thì ngọt ngào" : "Ý tưởng hoặc góp ý của bạn..."}
               </label>
               <textarea
                 required
@@ -186,7 +196,7 @@ export default function ConfessionNotes({
                 placeholder={
                   type === "confession"
                     ? "Hãy kể cho khu vườn nghe về niềm vui nhỏ bé hay chút tâm tình của bạn hôm nay nhé..."
-                    : "Lưu lại những trăn trở, cảm xúc, lời nhắn gửi hay lịch trình thơ mộng của bạn..."
+                    : "Bạn muốn bổ sung tính năng gì, đổi mới giao diện hay có ý tưởng độc đáo nào cho khu vườn? Chia sẻ ở đây nhé..."
                 }
                 className="bg-white/50 border border-pink-200/50 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white resize-none"
               />
@@ -194,7 +204,7 @@ export default function ConfessionNotes({
 
             {/* Pastel Color Selector */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-[11px] font-bold text-slate-600">Chọn giấy viết thư</label>
+              <label className="text-[11px] font-bold text-slate-600">Chọn màu thẻ ý tưởng</label>
               <div className="flex gap-2">
                 {colors.map((c) => (
                   <button
@@ -217,18 +227,22 @@ export default function ConfessionNotes({
               className="w-full mt-2 bg-gradient-to-r from-pink-400 to-purple-400 hover:from-pink-500 hover:to-purple-500 text-white font-bold py-2 rounded-xl text-xs shadow-md shadow-pink-100 flex items-center justify-center gap-1.5 transition-all"
             >
               <Send className="w-3.5 h-3.5" />
-              {loading ? "Đang ghim thư..." : type === "confession" ? "Ghim thư tâm sự" : "Lưu vào sổ nhật ký"}
+              {loading 
+                ? "Đang gửi..." 
+                : type === "confession" 
+                  ? "Ghim thư tâm sự" 
+                  : "Gửi ý tưởng ngay"
+              }
             </button>
           </form>
         </div>
 
-        {/* Notes list Display */}
+        {/* Ideas List Display */}
         <div className="lg:col-span-2">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-h-[60vh] overflow-y-auto pr-2 custom-scroll">
             <AnimatePresence>
               {items.map((item, index) => {
-                // Generate a slight random angle based on index to simulate sticky note wall
-                const rotAngle = (index % 3) - 1; // -1, 0, or 1 deg
+                const rotAngle = (index % 3) - 1;
                 return (
                   <motion.div
                     key={item.id}
@@ -239,31 +253,26 @@ export default function ConfessionNotes({
                     style={{ backgroundColor: item.color }}
                     className="p-5 rounded-3xl shadow-md border border-white/60 text-slate-800 flex flex-col gap-3 relative transition-all duration-300 min-h-[140px]"
                   >
-                    {/* Delete button (Visible for admins, or note author if matching logged-in user) */}
                     {(isAdmin || (type === "notes" && currentUser && item.author === currentUser.username)) && (
                       <button
                         onClick={(e) => handleDelete(item.id, e)}
                         className="absolute top-4 right-4 p-1 rounded-full bg-white/40 hover:bg-rose-50 text-rose-600 hover:scale-110 transition-all shadow-sm"
-                        title="Tháo gỡ ghi chú"
+                        title="Tháo gỡ ý tưởng"
                       >
-                        {/* Đã thay icon bằng dấu X */}
                         <X className="w-3.5 h-3.5" />
                       </button>
                     )}
 
-                    {/* Cute clip sticker decoration */}
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-8 h-4 bg-white/60 backdrop-blur-md rounded-md shadow-sm border border-white/80" />
 
-                    {/* Content */}
                     <p className="text-xs leading-relaxed font-semibold italic text-slate-800 whitespace-pre-line mt-1">
                       "{item.content}"
                     </p>
 
-                    {/* Author & Date metadata */}
                     <div className="mt-auto pt-2.5 border-t border-slate-800/10 flex items-center justify-between text-[10px] font-bold text-slate-700/80">
                       <span className="flex items-center gap-1">
                         <Heart className="w-3 h-3 text-rose-400 fill-rose-400 animate-pulse" />
-                        By: <span className="text-slate-900">{item.author}</span>
+                        Idea by: <span className="text-slate-900">{item.author}</span>
                       </span>
                       <span className="flex items-center gap-1">
                         <Calendar className="w-3 h-3 text-slate-500" />
