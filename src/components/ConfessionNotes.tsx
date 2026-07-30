@@ -3,7 +3,8 @@ import { collection, addDoc, query, orderBy, onSnapshot, limit, deleteDoc, doc }
 import { db } from "../config/firebase";
 import { ConfessionNote, UserProfile } from "../types";
 import { motion, AnimatePresence } from "motion/react";
-import { Send, Heart, Trash2, Calendar, Smile, ShieldAlert, Sparkles, MessageCircleCode } from "lucide-react";
+// Đã thay Trash2 thành X
+import { Send, Heart, X, Calendar, Smile, ShieldAlert, Sparkles, MessageCircleCode } from "lucide-react";
 
 interface ConfessionNotesProps {
   type: "confession" | "notes";
@@ -12,32 +13,11 @@ interface ConfessionNotesProps {
   showToast: (message: string, type: "success" | "error" | "info") => void;
 }
 
-const DEFAULT_CONFESSIONS: ConfessionNote[] = [
-  {
-    id: "def-conf-1",
-    author: "Ẩn danh",
-    content: "Mong rằng ai ghé thăm khu vườn thơ mộng của Hinh hôm nay đều sẽ có một ngày thật ngọt ngào như kẹo dâu và ngập tràn niềm vui! 🍓✨",
-    color: "#FFD1DC", // Pink
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: "def-conf-2",
-    author: "Người mộng mơ",
-    content: "Ước gì mình có thể giữ mãi nụ cười tỏa nắng của người ấy trong ngăn tủ ký ức. Gửi chút tình cảm này vào gió mây... ☁🌸",
-    color: "#E6E6FA", // Purple
-    createdAt: new Date().toISOString(),
-  }
-];
+// Đã xóa sạch thư tâm sự mặc định
+const DEFAULT_CONFESSIONS: ConfessionNote[] = [];
 
-const DEFAULT_NOTES: ConfessionNote[] = [
-  {
-    id: "def-note-1",
-    author: "Ngu Hinh",
-    content: "🌸 Lời nhắn gửi: 'Hãy tin tưởng vào hành trình của chính mình. Mỗi hạt mầm tốt đẹp bạn gieo xuống ngày hôm nay, nhất định sẽ nở hoa rực rỡ vào ngày mai.'",
-    color: "#BCECAC", // Blue/Green
-    createdAt: new Date().toISOString(),
-  }
-];
+// Đã xóa sạch sổ tay nhật ký mặc định
+const DEFAULT_NOTES: ConfessionNote[] = [];
 
 export default function ConfessionNotes({
   type,
@@ -136,7 +116,8 @@ export default function ConfessionNotes({
 
     const collectionName = type === "confession" ? "confessions" : "notes";
 
-    if (confirm("Bạn có chắc muốn tháo dỡ ghi chú này khỏi bức tường thơ mộng?")) {
+    // Thêm chữ window. để Vercel không báo lỗi undefined confirm
+    if (window.confirm("Bạn có chắc muốn tháo dỡ ghi chú này khỏi bức tường thơ mộng?")) {
       try {
         await deleteDoc(doc(db, collectionName, id));
         showToast("Đã tháo gỡ ghi chú thành công.", "info");
@@ -265,7 +246,8 @@ export default function ConfessionNotes({
                         className="absolute top-4 right-4 p-1 rounded-full bg-white/40 hover:bg-rose-50 text-rose-600 hover:scale-110 transition-all shadow-sm"
                         title="Tháo gỡ ghi chú"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        {/* Đã thay icon bằng dấu X */}
+                        <X className="w-3.5 h-3.5" />
                       </button>
                     )}
 
