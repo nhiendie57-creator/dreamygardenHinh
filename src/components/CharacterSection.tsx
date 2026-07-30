@@ -11,35 +11,8 @@ interface CharacterSectionProps {
   showToast: (message: string, type?: "success" | "error" | "info") => void;
 }
 
-const DEFAULT_CHARACTERS: Character[] = [
-  {
-    id: "default-aria",
-    name: "Aria Moonlight",
-    role: "The guardian of soft dreams and midnight whispers.",
-    avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&auto=format&fit=crop&q=80",
-    plot: "Nàng thơ gác đêm Aria Moonlight mang dòng máu của bộ tộc Mặt Trăng cổ xưa. Nàng dệt nên những dải mây lấp lánh để che chở cho những tâm hồn mỏi mệt tìm kiếm bến đỗ trong giấc ngủ say. Mỗi một lời thầm thì giữa màn đêm sẽ được nàng biến thành những vì sao lấp lánh soi sáng khu vườn.",
-    tags: ["Dream", "Midnight", "Whisper", "Luna"],
-    likes: 1204,
-  },
-  {
-    id: "default-lyra",
-    name: "Lyra Stardust",
-    role: "Woven from the silk of distant galaxies.",
-    avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80",
-    plot: "Đến từ dải ngân hà xa xôi, Lyra Stardust mang trong mình luồng năng lượng thăng hoa của bụi vũ trụ lấp lánh. Chiếc váy của nàng dệt từ những sợi tơ ánh sáng, mỗi bước đi của nàng đều gieo xuống khu vườn những hạt mầm phép thuật rực rỡ, mang lại sự sống vĩnh cửu cho vạn vật.",
-    tags: ["Star", "Galaxy", "Cosmic", "Astral"],
-    likes: 4812,
-  },
-  {
-    id: "default-elowen",
-    name: "Elowen Grove",
-    role: "Protector of the ancient pastel flora.",
-    avatar: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&auto=format&fit=crop&q=80",
-    plot: "Elowen Grove là linh hồn của những đóa hoa Tulip hồng phấn nở muộn. Nàng có khả năng trò chuyện với cỏ cây, cảm nhận từng hơi thở dịu nhẹ của đất trời. Nàng bảo vệ sự yên bình của Dreamy Garden trước những bão giông và nuôi dưỡng những mầm hoa căng tràn nhựa sống.",
-    tags: ["Nature", "Pastel", "Flora", "Forest"],
-    likes: 952,
-  }
-];
+// Đã làm trống danh sách mặc định để vườn chỉ hiện nhân vật do admin tạo
+const DEFAULT_CHARACTERS: Character[] = [];
 
 export default function CharacterSection({ isAdmin, showToast }: CharacterSectionProps) {
   const [characters, setCharacters] = useState<Character[]>([]);
@@ -199,10 +172,6 @@ export default function CharacterSection({ isAdmin, showToast }: CharacterSectio
 
   // Delete Character from Firestore
   const handleDeleteCharacter = async (id: string, name: string) => {
-    if (id.startsWith("default-")) {
-      showToast("Không thể xóa nhân vật mặc định!", "error");
-      return;
-    }
     // Sửa thêm chữ window. để Vercel không báo lỗi undefined confirm
     if (window.confirm(`Bạn có chắc chắn muốn xóa nhân vật ${name}?`)) {
       try {
@@ -410,9 +379,9 @@ export default function CharacterSection({ isAdmin, showToast }: CharacterSectio
               className="relative p-6 rounded-[32px] glass-panel hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 flex flex-col items-center text-center group"
             >
               
-              {/* Admin actions (Edit/Delete icons) */}
+              {/* Admin actions (Edit/Delete icons) - Đã sửa để luôn hiện trên iPad, dùng dấu X */}
               {isAdmin && (
-                <div className="absolute top-4 right-4 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                <div className="absolute top-4 right-4 flex gap-1.5 z-10">
                   <button
                     onClick={() => handleStartEdit(char)}
                     className="p-1.5 rounded-full bg-white/60 hover:bg-white text-purple-600 transition-colors shadow-sm"
@@ -425,7 +394,7 @@ export default function CharacterSection({ isAdmin, showToast }: CharacterSectio
                     className="p-1.5 rounded-full bg-white/60 hover:bg-rose-50 text-rose-600 transition-colors shadow-sm"
                     title="Xóa"
                   >
-                    <Trash2 className="w-3 h-3" />
+                    <X className="w-3 h-3" />
                   </button>
                 </div>
               )}
