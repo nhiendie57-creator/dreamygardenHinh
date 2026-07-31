@@ -97,10 +97,10 @@ export default function Socials({ currentUser }: { currentUser?: any }) {
       <div className="text-center relative">
         <h2 className="text-3xl font-display text-white text-glow-pearl flex items-center justify-center gap-2">
           <Heart className="w-6 h-6 text-pink-400 fill-pink-400 animate-pulse" />
-          Kênh Truyền Thông Mơ Mộng
+          Kênh Liên Lạc Mơ Mộng
         </h2>
         <p className="text-xs text-slate-700/80 font-medium mt-1">
-          Theo dõi bước chân của Ngu Hinh bên ngoài ranh giới của khu vườn kẹo ngọt...
+          Theo dõi bước chân của Ngữ Hinh bên ngoài ranh giới của khu vườn.
         </p>
 
         {currentUser?.isAdmin && (
@@ -124,7 +124,7 @@ export default function Socials({ currentUser }: { currentUser?: any }) {
             <div className="relative w-full h-full rounded-full overflow-hidden border-2 border-white bg-slate-100 z-10">
               <img
                 src={creatorInfo.avatar}
-                alt="Ngu Hinh"
+                alt="Ngữ Hinh."
                 className="w-full h-full object-cover"
               />
             </div>
@@ -133,7 +133,7 @@ export default function Socials({ currentUser }: { currentUser?: any }) {
             Ngu Hinh <Sparkles className="w-4 h-4 text-pink-400" />
           </h3>
           <p className="text-xs italic text-slate-600 font-semibold uppercase tracking-wider">
-            @nguhinh_2026 • CREATOR OF DREAMY GARDEN
+            @niyuxin26 • CREATOR OF DREAMY GARDEN
           </p>
           <div className="max-w-md text-xs text-slate-700 leading-relaxed font-semibold">
             {creatorInfo.bio}
