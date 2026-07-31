@@ -99,6 +99,23 @@ html, body {
 /* 7. SPARKLES & PETALS */
 .sparkle-slow { animation: float-sparkle 6s ease-in-out infinite; }
 
+/* Hạt sáng lấp lánh dùng ở BackgroundOverlay:
+   box-shadow khai báo TĨNH ở đây (không animate mỗi frame bằng JS/inline style),
+   chỉ animate opacity + transform (2 thuộc tính rẻ, được GPU composite) */
+.sparkle-twinkle {
+  background-color: #ffffff;
+  box-shadow: 0 0 10px 2px rgba(255, 255, 255, 0.6);
+  animation-name: sparkle-twinkle-kf;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  will-change: transform, opacity;
+}
+
+@keyframes sparkle-twinkle-kf {
+  0%, 100% { opacity: 0; transform: scale(0.5) translateZ(0); }
+  50% { opacity: 0.8; transform: scale(1.2) translateZ(0); }
+}
+
 @keyframes float-sparkle {
   0%, 100% { transform: translateY(0px) scale(0.8) rotate(0deg) translateZ(0); opacity: 0.3; }
   50% { transform: translateY(-20px) scale(1.2) rotate(180deg) translateZ(0); opacity: 0.95; }
@@ -139,5 +156,23 @@ html, body {
   img, video {
     max-width: 100% !important;
     height: auto !important;
+  }
+
+  /* Giảm nhịp nhấp nháy sparkle trên mobile để đỡ tốn CPU (số lượng đã giảm ở JS) */
+  .sparkle-twinkle {
+    animation-duration: 4s !important;
+  }
+}
+
+/* 10. TÔN TRỌNG CÀI ĐẶT "GIẢM CHUYỂN ĐỘNG" CỦA HỆ ĐIỀU HÀNH/TRÌNH DUYỆT
+   -> tắt hẳn các animation lặp vô hạn cho người dùng nhạy cảm với chuyển động
+      hoặc thiết bị yêu cầu tiết kiệm pin/hiệu năng */
+@media (prefers-reduced-motion: reduce) {
+  .sparkle-twinkle,
+  .sparkle-slow,
+  .animate-wave-rotate,
+  .liquid-border,
+  .tulip-glow {
+    animation: none !important;
   }
 }
