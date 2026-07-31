@@ -12,7 +12,7 @@ export default function Navbar({ activeTab, onChangeTab }: NavbarProps) {
     { id: "home" as TabType, label: "Home", icon: Home },
     { id: "characters" as TabType, label: "Characters", icon: Users },
     { id: "confession" as TabType, label: "Confession", icon: HeartHandshake },
-    { id: "notes" as TabType, label: "Notes", icon: FileText },
+    { id: "ideas" as TabType, label: "Ideas", icon: FileText },
     { id: "socials" as TabType, label: "Socials", icon: Share2 },
   ];
 
