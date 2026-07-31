@@ -127,12 +127,6 @@ export default function App() {
 
         <MusicPlayer isAdmin={isAdmin} showToast={showToast} />
 
-        <Manifestation
-          currentUser={currentUser}
-          onUpdateUser={handleUpdateUser}
-          showToast={showToast}
-        />
-
         {/* Dynamic view tabs switcher with elegant container structure */}
         <main className="flex-1 flex items-center justify-center pt-28 pb-32">
           <AnimatePresence mode="wait">
@@ -172,9 +166,14 @@ export default function App() {
                   showToast={showToast}
                 />
               )}
-{activeTab === "socials" && (
-  <Socials currentUser={currentUser ? { ...currentUser, isAdmin } : null} />
-)}
+              {activeTab === "manifest" && (
+                <Manifestation
+                  currentUser={currentUser}
+                  onUpdateUser={handleUpdateUser}
+                  showToast={showToast}
+                />
+              )}
+              {activeTab === "socials" && <Socials />}
             </motion.div>
           </AnimatePresence>
         </main>
