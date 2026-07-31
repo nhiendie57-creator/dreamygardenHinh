@@ -1,5 +1,5 @@
 import React from "react";
-import { Home, Users, HeartHandshake, FileText, Share2 } from "lucide-react";
+import { Home, Users, HeartHandshake, Share2, Sparkles } from "lucide-react"; // Thêm icon Sparkles
 import { TabType } from "../types";
 
 interface NavbarProps {
@@ -12,7 +12,7 @@ export default function Navbar({ activeTab, onChangeTab }: NavbarProps) {
     { id: "home" as TabType, label: "Home", icon: Home },
     { id: "characters" as TabType, label: "Characters", icon: Users },
     { id: "confession" as TabType, label: "Confession", icon: HeartHandshake },
-    { id: "ideas" as TabType, label: "Ideas", icon: FileText },
+    { id: "manifestation" as TabType, label: "Manifest", icon: Sparkles }, // Thêm tab Manifest ở đây
     { id: "socials" as TabType, label: "Socials", icon: Share2 },
   ];
 
