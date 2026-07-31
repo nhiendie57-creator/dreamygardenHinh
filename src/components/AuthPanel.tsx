@@ -155,15 +155,15 @@ export default function AuthPanel({
   return (
     <>
       {/* NÚT HOẶC WIDGET LUÔN HIỂN THỊ TRÊN MÀN HÌNH (GÓC TRÁI TRÊN) */}
-      <div className="absolute top-6 left-6 z-[90]">
+      <div className="absolute top-3 left-3 sm:top-6 sm:left-6 z-[90]">
         {currentUser ? (
           <motion.div 
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="p-3.5 rounded-2xl glass-panel text-slate-800 w-auto min-w-[200px] max-w-[260px] shadow-lg transition-all duration-300 hover:shadow-pink-100/50"
+            className="p-2.5 sm:p-3.5 rounded-2xl glass-panel text-slate-800 w-auto min-w-[150px] sm:min-w-[200px] max-w-[180px] sm:max-w-[260px] shadow-lg transition-all duration-300 hover:shadow-pink-100/50"
           >
             <div className="flex items-center justify-between gap-3">
-              <span className="text-[10px] uppercase tracking-[2px] opacity-70 font-bold flex items-center gap-1.5">
+              <span className="text-[9px] sm:text-[10px] uppercase tracking-[1.5px] sm:tracking-[2px] opacity-70 font-bold flex items-center gap-1.5">
                 {isAdmin ? <Shield className="w-3 h-3 text-pink-500 animate-pulse" /> : <User className="w-3 h-3 text-pink-400" />}
                 {isAdmin ? "Admin Portal" : "Dreamer"}
               </span>
@@ -175,11 +175,11 @@ export default function AuthPanel({
                 <LogOut className="w-3 h-3" />
               </button>
             </div>
-            <p className="text-sm font-semibold truncate text-slate-800 mt-1">
+            <p className="text-xs sm:text-sm font-semibold truncate text-slate-800 mt-1">
               Hi, <span className="text-pink-600 font-bold">{currentUser.username}</span>
             </p>
             {!isAdmin && (
-              <p className="text-[11px] text-slate-600 mt-0.5">
+              <p className="text-[10px] sm:text-[11px] text-slate-600 mt-0.5">
                 Streak: <span className="font-bold text-pink-500">✨ {currentUser.currentStreak} ngày</span>
               </p>
             )}
@@ -196,10 +196,10 @@ export default function AuthPanel({
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setIsOpen(true)}
-            className="px-5 py-2.5 rounded-full glass-panel flex items-center gap-2 text-pink-600 font-bold text-xs shadow-md border border-white/50 hover:bg-white/60 transition-colors"
+            className="px-3 sm:px-5 py-2.5 rounded-full glass-panel flex items-center gap-0 sm:gap-2 text-pink-600 font-bold text-xs shadow-md border border-white/50 hover:bg-white/60 transition-colors"
           >
             <User className="w-3.5 h-3.5" />
-            Đăng nhập / Đăng ký
+            <span className="hidden sm:inline">Đăng nhập / Đăng ký</span>
           </motion.button>
         )}
       </div>
