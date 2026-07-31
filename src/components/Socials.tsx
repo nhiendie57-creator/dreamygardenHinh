@@ -130,7 +130,7 @@ export default function Socials({ currentUser }: { currentUser?: any }) {
             </div>
           </div>
           <h3 className="text-xl font-bold font-display text-slate-900 flex items-center gap-1.5">
-            Ngu Hinh <Sparkles className="w-4 h-4 text-pink-400" />
+            Ngữ Hinh <Sparkles className="w-4 h-4 text-pink-400" />
           </h3>
           <p className="text-xs italic text-slate-600 font-semibold uppercase tracking-wider">
             @niyuxin26 • CREATOR OF DREAMY GARDEN
