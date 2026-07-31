@@ -3,7 +3,7 @@ import { collection, getDocs, addDoc, query, orderBy } from "firebase/firestore"
 import { db } from "../config/firebase";
 import { Song } from "../types";
 import { Plus, Loader2, Music, ListMusic, Link as LinkIcon, UploadCloud } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 
 interface MusicPlayerProps {
   isAdmin: boolean;
