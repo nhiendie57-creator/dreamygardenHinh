@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { doc, setDoc, arrayUnion } from "firebase/firestore";
 import { db } from "../config/firebase";
 import { UserProfile } from "../types";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import { Send, Wand2, Info, Quote, CheckCircle2 } from "lucide-react";
 
 interface ManifestationProps {
@@ -147,8 +147,10 @@ export default function Manifestation({
   return (
     <div 
       id="manifestation-streak" 
-      className="absolute bottom-8 right-8 z-[100] text-right"
+      className="absolute bottom-28 right-4 sm:bottom-8 sm:right-8 z-[100] text-right"
     >
+      <div className="bg-white/25 backdrop-blur-lg border border-white/40 p-4 sm:p-5 rounded-[32px] shadow-xl w-[85vw] max-w-[340px] sm:w-[340px] relative overflow-hidden transition-all duration-300 hover:shadow-pink-100/50">
+
       <div className="bg-white/25 backdrop-blur-lg border border-white/40 p-5 rounded-[32px] shadow-xl w-[340px] relative overflow-hidden transition-all duration-300 hover:shadow-pink-100/50">
         
         {/* Particle Overlay */}
