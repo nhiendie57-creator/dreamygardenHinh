@@ -1,17 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { Heart, Sparkles, Facebook, MessageCircle, Star, Instagram, Twitter, Globe, Link as LinkIcon, Edit3, Trash2, Plus, Save, X } from "lucide-react";
+import { Heart, Sparkles, Facebook, MessageCircle, Star, Instagram, Twitter, Globe, Link as LinkIcon, Edit3, Trash2, Plus, Save, X, Image as ImageIcon, AlignLeft } from "lucide-react";
 import { doc, getDoc, setDoc } from "firebase/firestore";
-import { db } from "../config/firebase"; // Đảm bảo đường dẫn này khớp với project của chị
+import { db } from "../config/firebase";
 
-// Bộ từ điển để chuyển đổi tên dạng Text sang Icon
 const IconMap: Record<string, React.ElementType> = {
-  Facebook,
-  MessageCircle,
-  Star,
-  Instagram,
-  Twitter,
-  Globe,
-  Link: LinkIcon,
+  Facebook, MessageCircle, Star, Instagram, Twitter, Globe, Link: LinkIcon,
 };
 
 interface SocialLink {
@@ -23,39 +16,38 @@ interface SocialLink {
   iconName: string;
 }
 
-// Thêm prop currentUser để kiểm tra quyền Admin
 export default function Socials({ currentUser }: { currentUser?: any }) {
   const [links, setLinks] = useState<SocialLink[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   
-  // State cho form thêm link mới
+  // State quản lý Avatar và Bio
+  const [creatorInfo, setCreatorInfo] = useState({
+    avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80",
+    bio: `"Chào bạn mộng mơ! Cảm ơn bạn đã ghé thăm thế giới nhỏ bé chứa đựng toàn bộ sự kì diệu của tớ. Hy vọng vườn cây này có thể mang lại cho bạn sự yên bình và dũng khí."`
+  });
+  
   const [newLink, setNewLink] = useState({
-    name: "",
-    handle: "",
-    url: "",
-    iconName: "Link",
-    color: "from-pink-400 to-purple-400"
+    name: "", handle: "", url: "", iconName: "Link", color: "from-pink-400 to-purple-400"
   });
 
-  // Tải dữ liệu từ Firebase khi mở web
   useEffect(() => {
     const fetchLinks = async () => {
       try {
         const docRef = doc(db, "settings", "socials");
         const docSnap = await getDoc(docRef);
         
-        if (docSnap.exists() && docSnap.data().links) {
-          setLinks(docSnap.data().links);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data.links) setLinks(data.links);
+          if (data.creatorInfo) setCreatorInfo(data.creatorInfo);
         } else {
-          // Nếu chưa có dữ liệu trên Firebase, dùng dữ liệu mặc định này và lưu lên
           const defaultLinks = [
             { id: "1", name: "Facebook", handle: "Ngu Hinh (Dreamy Garden)", url: "https://facebook.com", color: "from-blue-400 to-indigo-500", iconName: "Facebook" },
             { id: "2", name: "Discord", handle: "Cộng đồng mộng mơ", url: "https://discord.com", color: "from-indigo-400 to-purple-500", iconName: "MessageCircle" },
-            { id: "3", name: "Starlight", handle: "Vũ trụ nhân vật", url: "https://starlight.com", color: "from-amber-300 to-orange-400", iconName: "Star" }
           ];
           setLinks(defaultLinks);
-          await setDoc(docRef, { links: defaultLinks });
+          await setDoc(docRef, { links: defaultLinks, creatorInfo });
         }
       } catch (error) {
         console.error("Lỗi khi tải dữ liệu Socials:", error);
@@ -66,11 +58,14 @@ export default function Socials({ currentUser }: { currentUser?: any }) {
     fetchLinks();
   }, []);
 
-  // Hàm lưu dữ liệu mới lên Firebase
-  const saveToFirebase = async (updatedLinks: SocialLink[]) => {
+  const saveToFirebase = async (updatedLinks: SocialLink[], updatedCreatorInfo = creatorInfo) => {
     try {
-      await setDoc(doc(db, "settings", "socials"), { links: updatedLinks });
+      await setDoc(doc(db, "settings", "socials"), { 
+        links: updatedLinks, 
+        creatorInfo: updatedCreatorInfo 
+      }, { merge: true });
       setLinks(updatedLinks);
+      setCreatorInfo(updatedCreatorInfo);
     } catch (error) {
       alert("Có lỗi khi lưu lên hệ thống mây trời ☁️");
     }
@@ -88,7 +83,12 @@ export default function Socials({ currentUser }: { currentUser?: any }) {
     }
     const updated = [...links, { ...newLink, id: Date.now().toString() }];
     saveToFirebase(updated);
-    setNewLink({ name: "", handle: "", url: "", iconName: "Link", color: "from-pink-400 to-purple-400" }); // Reset form
+    setNewLink({ name: "", handle: "", url: "", iconName: "Link", color: "from-pink-400 to-purple-400" });
+  };
+
+  const handleSaveCreatorInfo = () => {
+    saveToFirebase(links, creatorInfo);
+    alert("Đã lưu Avatar và Lời dẫn thành công! ✨");
   };
 
   return (
@@ -103,7 +103,6 @@ export default function Socials({ currentUser }: { currentUser?: any }) {
           Theo dõi bước chân của Ngu Hinh bên ngoài ranh giới của khu vườn kẹo ngọt...
         </p>
 
-        {/* Nút bật/tắt chế độ chỉnh sửa dành riêng cho Admin */}
         {currentUser?.isAdmin && (
           <button 
             onClick={() => setIsEditing(!isEditing)}
@@ -117,30 +116,52 @@ export default function Socials({ currentUser }: { currentUser?: any }) {
 
       <div className="bg-white/20 backdrop-blur-lg border border-white/40 p-6 md:p-8 rounded-[36px] shadow-2xl flex flex-col items-center gap-6">
         
-        {/* Creator Info Header giữ nguyên như cũ */}
-        <div className="flex flex-col items-center text-center gap-2">
+        {/* Creator Info */}
+        <div className="flex flex-col items-center text-center gap-2 w-full">
           <div className="relative w-24 h-24 select-none">
             <div className="absolute -inset-1.5 rounded-full bg-gradient-to-tr from-green-300 via-pink-300 to-purple-300 blur-sm animate-wave-rotate opacity-75" />
             <div className="absolute -inset-1 rounded-full liquid-border" />
             <div className="relative w-full h-full rounded-full overflow-hidden border-2 border-white bg-slate-100 z-10">
               <img
-                src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80"
+                src={creatorInfo.avatar}
                 alt="Ngu Hinh"
                 className="w-full h-full object-cover"
               />
             </div>
           </div>
           <h3 className="text-xl font-bold font-display text-slate-900 flex items-center gap-1.5">
-            Ngu Hinh
-            <Sparkles className="w-4 h-4 text-pink-400" />
+            Ngu Hinh <Sparkles className="w-4 h-4 text-pink-400" />
           </h3>
           <p className="text-xs italic text-slate-600 font-semibold uppercase tracking-wider">
-            @nguhinh_2026 • Creator of Dreamy Garden
+            @nguhinh_2026 • CREATOR OF DREAMY GARDEN
           </p>
           <div className="max-w-md text-xs text-slate-700 leading-relaxed font-semibold">
-            "Chào bạn mộng mơ! Cảm ơn bạn đã ghé thăm thế giới nhỏ bé chứa đựng toàn bộ sự kì diệu của tớ. Hy vọng vườn cây này có thể mang lại cho bạn sự yên bình và dũng khí."
+            {creatorInfo.bio}
           </div>
         </div>
+
+        {/* Khung chỉnh sửa Avatar & Bio (Dành cho Admin) */}
+        {isEditing && currentUser?.isAdmin && (
+          <div className="w-full max-w-md bg-white/50 border border-pink-200 p-4 rounded-2xl flex flex-col gap-3">
+            <h4 className="text-xs font-bold text-pink-700 flex items-center gap-1.5"><ImageIcon className="w-4 h-4"/> Chỉnh sửa Profile</h4>
+            <input 
+              type="text" 
+              placeholder="Link ảnh Avatar (URL)..." 
+              value={creatorInfo.avatar} 
+              onChange={e => setCreatorInfo({...creatorInfo, avatar: e.target.value})} 
+              className="p-2 text-xs rounded-lg bg-white/80 border-none outline-pink-300 w-full"
+            />
+            <textarea 
+              placeholder="Lời dẫn (Bio)..." 
+              value={creatorInfo.bio} 
+              onChange={e => setCreatorInfo({...creatorInfo, bio: e.target.value})} 
+              className="p-2 text-xs rounded-lg bg-white/80 border-none outline-pink-300 w-full resize-none h-20"
+            />
+            <button onClick={handleSaveCreatorInfo} className="w-full p-2 bg-pink-500 hover:bg-pink-600 text-white font-bold rounded-lg text-xs flex items-center justify-center gap-2 transition-colors">
+              <Save className="w-4 h-4"/> Lưu Profile
+            </button>
+          </div>
+        )}
 
         {/* Khung hiển thị Links */}
         <div className="w-full">
@@ -149,34 +170,20 @@ export default function Socials({ currentUser }: { currentUser?: any }) {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
               {links.map((link) => {
-                const Icon = IconMap[link.iconName] || IconMap.Link; // Fallback nếu gõ sai tên icon
+                const Icon = IconMap[link.iconName] || IconMap.Link;
                 return (
                   <div key={link.id} className="relative group">
-                    <a
-                      href={link.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={`p-4 rounded-2xl bg-white/40 hover:bg-white/70 border border-white/50 transition-all duration-300 flex items-center gap-4 ${!isEditing && 'hover:scale-[1.03] hover:shadow-lg'}`}
-                    >
+                    <a href={link.url} target="_blank" rel="noopener noreferrer" className={`p-4 rounded-2xl bg-white/40 hover:bg-white/70 border border-white/50 transition-all duration-300 flex items-center gap-4 ${!isEditing && 'hover:scale-[1.03] hover:shadow-lg'}`}>
                       <div className={`w-10 h-10 rounded-xl bg-gradient-to-tr ${link.color} text-white flex items-center justify-center shadow-md transform group-hover:rotate-6 transition-transform`}>
                         <Icon className="w-5 h-5" />
                       </div>
                       <div className="text-left overflow-hidden">
-                        <h4 className="text-sm font-bold text-slate-800 group-hover:text-pink-600 transition-colors truncate">
-                          {link.name}
-                        </h4>
-                        <p className="text-[10px] text-slate-500 font-bold tracking-wide truncate">
-                          {link.handle}
-                        </p>
+                        <h4 className="text-sm font-bold text-slate-800 group-hover:text-pink-600 transition-colors truncate">{link.name}</h4>
+                        <p className="text-[10px] text-slate-500 font-bold tracking-wide truncate">{link.handle}</p>
                       </div>
                     </a>
-                    
-                    {/* Nút xóa hiện ra khi ở chế độ Edit */}
                     {isEditing && (
-                      <button 
-                        onClick={() => handleDelete(link.id)}
-                        className="absolute -top-2 -right-2 w-7 h-7 bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-red-600 animate-pulse"
-                      >
+                      <button onClick={() => handleDelete(link.id)} className="absolute -top-2 -right-2 w-7 h-7 bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-red-600 animate-pulse">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     )}
@@ -187,11 +194,13 @@ export default function Socials({ currentUser }: { currentUser?: any }) {
           )}
         </div>
 
-        {/* Bảng thêm Link mới (Chỉ hiện khi Admin bật chế độ Sửa) */}
+        {/* Form thêm Link */}
         {isEditing && currentUser?.isAdmin && (
-          <div className="w-full mt-4 p-4 bg-white/50 border border-pink-200 rounded-2xl flex flex-col gap-3">
-            <h4 className="text-xs font-bold text-pink-700 flex items-center gap-1.5"><Plus className="w-4 h-4"/> Thêm liên kết mới</h4>
-            <div className="grid grid-cols-2 gap-3 text-xs">
+           /* ... (Giữ nguyên form thêm link của chị ở đây) ... */
+           <div className="w-full mt-4 p-4 bg-white/50 border border-pink-200 rounded-2xl flex flex-col gap-3">
+             <h4 className="text-xs font-bold text-pink-700 flex items-center gap-1.5"><Plus className="w-4 h-4"/> Thêm liên kết mới</h4>
+             {/* Các input thêm link y hệt như code cũ của chị */}
+             <div className="grid grid-cols-2 gap-3 text-xs">
               <input type="text" placeholder="Tên (VD: Facebook)" value={newLink.name} onChange={e => setNewLink({...newLink, name: e.target.value})} className="p-2 rounded-lg bg-white/80 border-none outline-pink-300"/>
               <input type="text" placeholder="Mô tả (VD: Vũ trụ nhân vật)" value={newLink.handle} onChange={e => setNewLink({...newLink, handle: e.target.value})} className="p-2 rounded-lg bg-white/80 border-none outline-pink-300"/>
               <input type="text" placeholder="Đường link URL..." value={newLink.url} onChange={e => setNewLink({...newLink, url: e.target.value})} className="p-2 rounded-lg bg-white/80 border-none outline-pink-300 col-span-2"/>
@@ -216,9 +225,8 @@ export default function Socials({ currentUser }: { currentUser?: any }) {
             <button onClick={handleAddLink} className="w-full p-2 mt-2 bg-pink-500 hover:bg-pink-600 text-white font-bold rounded-lg flex items-center justify-center gap-2 transition-colors">
               <Save className="w-4 h-4"/> Lưu liên kết mới
             </button>
-          </div>
+           </div>
         )}
-
       </div>
     </div>
   );
