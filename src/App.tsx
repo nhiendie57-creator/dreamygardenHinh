@@ -172,7 +172,9 @@ export default function App() {
                   showToast={showToast}
                 />
               )}
-              {activeTab === "socials" && <Socials />}
+{activeTab === "socials" && (
+  <Socials currentUser={currentUser ? { ...currentUser, isAdmin } : null} />
+)}
             </motion.div>
           </AnimatePresence>
         </main>
