@@ -36,7 +36,7 @@ export default function Manifestation({
 
   // Tính toán ngày hiện tại và hôm qua
   const todayStr = getLocalDateStr(new Date());
-  
+
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
   const yesterdayStr = getLocalDateStr(yesterday);
@@ -46,11 +46,11 @@ export default function Manifestation({
   // Kiểm tra xem hôm nay ĐÃ MANIFEST CHƯA
   const hasManifestedToday = lastDate === todayStr;
 
-  // Lọc số chuỗi HIỂN THỊ 
+  // Lọc số chuỗi HIỂN THỊ
   // Nếu chưa từng manifest hoặc đã bỏ lỡ ngày hôm qua -> tạm hiển thị 0
   let displayStreak = currentUser?.currentStreak || 0;
   if (!lastDate || (lastDate !== todayStr && lastDate !== yesterdayStr)) {
-    displayStreak = 0; 
+    displayStreak = 0;
   }
 
   // Lấy câu Manifest gần nhất trong lịch sử
@@ -93,7 +93,7 @@ export default function Manifestation({
     try {
       // Lưu lên Firestore
       const userRef = doc(db, "users", currentUser.username.toLowerCase());
-      
+
       const updatedUser: UserProfile = {
         ...currentUser,
         currentStreak: newStreak,
@@ -145,14 +145,12 @@ export default function Manifestation({
   };
 
   return (
-    <div 
-      id="manifestation-streak" 
+    <div
+      id="manifestation-streak"
       className="absolute bottom-28 right-4 sm:bottom-8 sm:right-8 z-[100] text-right"
     >
       <div className="bg-white/25 backdrop-blur-lg border border-white/40 p-4 sm:p-5 rounded-[32px] shadow-xl w-[85vw] max-w-[340px] sm:w-[340px] relative overflow-hidden transition-all duration-300 hover:shadow-pink-100/50">
 
-      <div className="bg-white/25 backdrop-blur-lg border border-white/40 p-5 rounded-[32px] shadow-xl w-[340px] relative overflow-hidden transition-all duration-300 hover:shadow-pink-100/50">
-        
         {/* Particle Overlay */}
         <AnimatePresence>
           {showParticles && (
@@ -184,7 +182,7 @@ export default function Manifestation({
             Manifestation
           </span>
           {currentUser ? (
-            <motion.div 
+            <motion.div
               className="text-[11px] font-bold text-pink-500 bg-pink-50/90 px-3 py-1.5 rounded-full shadow-sm border border-pink-100 whitespace-nowrap flex items-center gap-1"
               animate={{ scale: [1, 1.02, 1] }}
               transition={{ repeat: Infinity, duration: 2 }}
