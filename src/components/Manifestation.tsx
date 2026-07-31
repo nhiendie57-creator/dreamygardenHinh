@@ -18,11 +18,6 @@ interface StarParticle {
   delay: number;
 }
 
-const getLocalDateStr = (d: Date) => {
-  const offset = d.getTimezoneOffset() * 60000;
-  return new Date(d.getTime() - offset).toISOString().split("T")[0];
-};
-
 export default function Manifestation({
   currentUser,
   onUpdateUser,
@@ -33,18 +28,49 @@ export default function Manifestation({
   const [showParticles, setShowParticles] = useState(false);
   const [particles, setParticles] = useState<StarParticle[]>([]);
 
-  const todayStr = getLocalDateStr(new Date());
-  
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayStr = getLocalDateStr(yesterday);
+  // --- LOGIC ĐẾM NGÀY MỚI (CHUẨN 100% THEO GIỜ ĐỊA PHƯƠNG) ---
+  const checkStreakStatus = (lastDateStr?: string) => {
+    // Nếu chưa từng gửi bao giờ
+    if (!lastDateStr) return { hasManifestedToday: false, isStreakActive: false };
 
-  const lastDate = currentUser?.lastManifestDate ? currentUser.lastManifestDate.split("T")[0] : null;
-  const hasManifestedToday = lastDate === todayStr;
+    const now = new Date();
+    let lastDate: Date;
 
+    // Tương thích ngược: Đọc cả dữ liệu code cũ "YYYY-MM-DD" và code mới "ISO String"
+    if (lastDateStr.length === 10) {
+      const [y, m, d] = lastDateStr.split('-');
+      lastDate = new Date(Number(y), Number(m) - 1, Number(d));
+    } else {
+      lastDate = new Date(lastDateStr);
+    }
+
+    // So sánh xem có đúng là hôm nay không (Khớp ngày, tháng, năm)
+    const isSameDay =
+      lastDate.getFullYear() === now.getFullYear() &&
+      lastDate.getMonth() === now.getMonth() &&
+      lastDate.getDate() === now.getDate();
+
+    // So sánh xem có phải hôm qua không (Để giữ chuỗi)
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+    const isYesterday =
+      lastDate.getFullYear() === yesterday.getFullYear() &&
+      lastDate.getMonth() === yesterday.getMonth() &&
+      lastDate.getDate() === yesterday.getDate();
+
+    return {
+      hasManifestedToday: isSameDay,
+      isStreakActive: isSameDay || isYesterday
+    };
+  };
+
+  // Tính toán trạng thái thực tại
+  const { hasManifestedToday, isStreakActive } = checkStreakStatus(currentUser?.lastManifestDate);
+
+  // Nếu đứt chuỗi (không gửi hôm nay và cũng bỏ lỡ hôm qua) thì đưa về 0
   let displayStreak = currentUser?.currentStreak || 0;
-  if (!lastDate || (lastDate !== todayStr && lastDate !== yesterdayStr)) {
-    displayStreak = 0; 
+  if (!isStreakActive) {
+    displayStreak = 0;
   }
 
   const historyList = currentUser?.manifestHistory || [];
@@ -67,37 +93,43 @@ export default function Manifestation({
     let newStreak = currentUser.currentStreak || 0;
     let streakIncreased = false;
 
-    if (hasManifestedToday) {
-      newStreak = currentUser.currentStreak;
+    // Phân tích lại lúc nhấn gửi
+    const currentStatus = checkStreakStatus(currentUser.lastManifestDate);
+
+    if (currentStatus.hasManifestedToday) {
+      newStreak = currentUser.currentStreak || 0;
       streakIncreased = false;
-    } else if (lastDate === yesterdayStr) {
-      newStreak += 1;
+    } else if (currentStatus.isStreakActive) {
+      newStreak += 1; // Hôm qua có gửi, nay gửi tiếp -> Cộng chuỗi
       streakIncreased = true;
     } else {
-      newStreak = 1;
+      newStreak = 1; // Bắt đầu chuỗi mới
       streakIncreased = true;
     }
 
     const currentWish = wish.trim();
+    // Lưu chính xác tới từng giây của lúc bấm gửi để không bao giờ bị lệch múi giờ nữa
+    const exactTimeNow = new Date().toISOString(); 
 
     try {
-      const userRef = doc(db, "users", currentUser.username.toLowerCase());
+      const userId = currentUser.username?.toLowerCase() || currentUser.uid || currentUser.id || "unknown_user";
+      const userRef = doc(db, "users", userId);
       
       const updatedUser: UserProfile = {
         ...currentUser,
         currentStreak: newStreak,
-        lastManifestDate: todayStr,
-        manifestHistory: [...historyList, { wish: currentWish, date: new Date().toISOString() }],
+        lastManifestDate: exactTimeNow, 
+        manifestHistory: [...historyList, { wish: currentWish, date: exactTimeNow }],
       };
 
       await setDoc(
         userRef,
         {
           currentStreak: newStreak,
-          lastManifestDate: todayStr,
+          lastManifestDate: exactTimeNow,
           manifestHistory: arrayUnion({
             wish: currentWish,
-            date: new Date().toISOString(),
+            date: exactTimeNow,
           }),
         },
         { merge: true }
@@ -123,8 +155,9 @@ export default function Manifestation({
         }
       }, 1800);
 
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      console.error("Lỗi Manifest:", err);
+      alert("Chi tiết lỗi Firebase: " + (err.message || "Lỗi không xác định"));
       showToast("Gặp khó khăn khi truyền phát điều ước đến các vì sao!", "error");
     } finally {
       setIsSending(false);
@@ -134,7 +167,7 @@ export default function Manifestation({
   return (
     <div className="w-full max-w-3xl mx-auto px-4 py-8 z-10 flex flex-col gap-6 relative">
       
-      {/* Tiêu đề trang mới - Đã đổi font chữ thường và màu xanh tím than (indigo-900) */}
+      {/* Tiêu đề trang */}
       <div className="text-center mb-4">
         <h2 className="text-3xl md:text-4xl font-bold text-indigo-900 mb-2 tracking-wide">
           Trạm Gửi Điều Ước
