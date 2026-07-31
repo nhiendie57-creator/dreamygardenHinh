@@ -3,7 +3,7 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "../config/firebase";
 import { UserProfile } from "../types";
 import { Key, User, Shield, LogOut, X, Sparkles } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 
 interface AuthPanelProps {
   currentUser: UserProfile | null;
