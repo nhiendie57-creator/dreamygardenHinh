@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { doc, setDoc } from "firebase/firestore";
 import { db } from "../config/firebase";
-import { motion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 import { Upload, Image as ImageIcon, Sparkles, Loader2, ArrowRight } from "lucide-react";
+import { useIsMobile } from "../hooks/useIsMobile";
 
 interface HeroProps {
   isAdmin: boolean;
@@ -20,6 +21,9 @@ export default function Hero({
   customBgUrl,
 }: HeroProps) {
   const [uploading, setUploading] = useState(false);
+  const isMobile = useIsMobile();
+  const prefersReducedMotion = useReducedMotion();
+  const reduceEffects = isMobile || !!prefersReducedMotion;
 
   const handleBgUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -96,7 +100,8 @@ export default function Hero({
         }
 
         .dreamy-shimmer {
-          animation: dreamyShimmer 2.6s ease-in-out infinite;
+          /* Chạy 1 lần khi vào trang rồi giữ nguyên trạng thái sáng cuối (không lặp vô hạn) */
+          animation: dreamyShimmer 1.6s ease-in-out 1 forwards;
         }
 
         @keyframes gardenOmbre {
@@ -133,7 +138,16 @@ export default function Hero({
           background-clip: text;
           -webkit-text-fill-color: transparent;
           color: transparent;
-          animation: gardenOmbre 6s ease-in-out infinite, gardenGlow 2.6s ease-in-out infinite;
+          /* gardenOmbre (background-position) rẻ, giữ lặp. gardenGlow (drop-shadow) chỉ chạy 1 lần rồi dừng ở trạng thái sáng cuối */
+          animation: gardenOmbre 6s ease-in-out infinite, gardenGlow 1.6s ease-in-out 1 forwards;
+        }
+
+        @media (max-width: 768px) {
+          /* Trên mobile: tắt hẳn ombre lặp vô hạn để đỡ tốn CPU/GPU, chỉ giữ màu tĩnh */
+          .garden-ombre {
+            animation: gardenGlow 1.6s ease-in-out 1 forwards;
+            background-position: 50% 50%;
+          }
         }
 
         .quote-halo {
@@ -162,8 +176,12 @@ export default function Hero({
         className="flex flex-row flex-wrap items-center justify-center gap-x-1 md:gap-x-2 gap-y-1 select-none max-w-full overflow-visible py-4"
       >
         <motion.span
-          animate={{ y: [0, -6, 0] }}
-          transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut" }}
+          animate={reduceEffects ? { y: 0 } : { y: [0, -6, 0] }}
+          transition={
+            reduceEffects
+              ? { duration: 0.6, ease: "easeOut" }
+              : { duration: 3.2, repeat: Infinity, ease: "easeInOut" }
+          }
           className="dreamy-shimmer font-display text-white"
           style={{ fontSize: "clamp(2.75rem, 9vw, 7rem)", lineHeight: 1.1 }}
         >
