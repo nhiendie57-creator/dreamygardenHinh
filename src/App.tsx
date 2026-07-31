@@ -166,7 +166,7 @@ export default function App() {
                   showToast={showToast}
                 />
               )}
-              {activeTab === "manifest" && (
+              {activeTab === "manifestation" && (
                 <Manifestation
                   currentUser={currentUser}
                   onUpdateUser={handleUpdateUser}
