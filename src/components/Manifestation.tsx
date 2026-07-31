@@ -132,14 +132,14 @@ export default function Manifestation({
   };
 
   return (
-    <div className="w-full max-w-3xl mx-auto px-4 py-8 z-10 flex flex-col gap-6 relative text-slate-800">
+    <div className="w-full max-w-3xl mx-auto px-4 py-8 z-10 flex flex-col gap-6 relative">
       
-      {/* Tiêu đề trang mới */}
+      {/* Tiêu đề trang mới - Đã đổi font chữ thường và màu xanh tím than (indigo-900) */}
       <div className="text-center mb-4">
-        <h2 className="text-4xl md:text-5xl font-dancing font-bold text-pink-700 text-glow-pearl mb-2">
+        <h2 className="text-3xl md:text-4xl font-bold text-indigo-900 mb-2 tracking-wide">
           Trạm Gửi Điều Ước
         </h2>
-        <p className="text-xs md:text-sm text-pink-600/80 italic font-sans-dreamy max-w-md mx-auto">
+        <p className="text-xs md:text-sm text-indigo-800/80 italic max-w-md mx-auto font-medium">
           "Nơi thời gian dừng lại, để bạn gửi gắm những hy vọng nhiệm màu vào vũ trụ bao la..."
         </p>
       </div>
@@ -152,7 +152,7 @@ export default function Manifestation({
               {particles.map((p) => (
                 <motion.div
                   key={p.id}
-                  className="absolute text-pink-400 font-bold text-2xl"
+                  className="absolute text-indigo-400 font-bold text-2xl"
                   initial={{ opacity: 1, scale: 0.5, x: 0, y: 0 }}
                   animate={{
                     opacity: 0,
@@ -170,14 +170,14 @@ export default function Manifestation({
           )}
         </AnimatePresence>
 
-        <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4 border-b border-pink-100/50 pb-4">
-          <span className="text-sm font-bold text-slate-700 tracking-widest uppercase flex items-center gap-2">
-            <Wand2 className="w-5 h-5 text-purple-500" />
+        <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4 border-b border-white/40 pb-4">
+          <span className="text-sm font-bold text-indigo-900 tracking-widest uppercase flex items-center gap-2">
+            <Wand2 className="w-5 h-5 text-indigo-600" />
             Nhật Ký Manifestation
           </span>
           {currentUser ? (
             <motion.div 
-              className="text-sm font-bold text-pink-500 bg-pink-50/90 px-4 py-2 rounded-full shadow-sm border border-pink-200 flex items-center gap-2"
+              className="text-sm font-bold text-indigo-600 bg-indigo-50/90 px-4 py-2 rounded-full shadow-sm border border-indigo-200 flex items-center gap-2"
               animate={{ scale: [1, 1.02, 1] }}
               transition={{ repeat: Infinity, duration: 2 }}
             >
@@ -191,10 +191,10 @@ export default function Manifestation({
         </div>
 
         {currentUser && lastWish && displayStreak > 0 && (
-          <div className="mb-6 bg-pink-50/70 rounded-2xl p-5 border border-pink-100/60 relative flex gap-3 items-start shadow-inner">
-            <Quote className="w-6 h-6 text-pink-400 flex-shrink-0 opacity-50" />
+          <div className="mb-6 bg-white/50 rounded-2xl p-5 border border-indigo-100/60 relative flex gap-3 items-start shadow-inner">
+            <Quote className="w-6 h-6 text-indigo-400 flex-shrink-0 opacity-50" />
             <div className="flex flex-col">
-              <span className="text-xs font-bold text-pink-500 uppercase tracking-wider mb-2">
+              <span className="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-2">
                 Vũ trụ đã ghi nhận điều ước gần nhất:
               </span>
               <p className="text-sm text-slate-700 italic leading-relaxed font-semibold">
@@ -226,11 +226,11 @@ export default function Manifestation({
                     value={wish}
                     onChange={(e) => setWish(e.target.value)}
                     placeholder={hasManifestedToday ? "Gửi thêm những dòng suy nghĩ tích cực vào không gian..." : "Hôm nay bạn muốn gửi điều gì vào vũ trụ?... 💫"}
-                    className="w-full h-32 bg-white/60 border border-pink-200/50 rounded-2xl p-5 text-sm outline-none text-slate-800 placeholder-slate-400 focus:bg-white/90 focus:border-pink-300 transition-colors shadow-inner resize-none leading-relaxed"
+                    className="w-full h-32 bg-white/60 border border-indigo-200/50 rounded-2xl p-5 text-sm outline-none text-slate-800 placeholder-slate-500 focus:bg-white/90 focus:border-indigo-400 transition-colors shadow-inner resize-none leading-relaxed"
                   />
                   <button
                     type="submit"
-                    className="self-end bg-gradient-to-r from-pink-400 to-purple-400 hover:from-pink-500 hover:to-purple-500 text-white font-bold py-3 px-8 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md shadow-pink-200"
+                    className="self-end bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white font-bold py-3 px-8 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md shadow-indigo-200"
                   >
                     <Send className="w-4 h-4" />
                     Phóng lên vũ trụ
@@ -243,8 +243,8 @@ export default function Manifestation({
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                 >
-                  <Wand2 className="w-10 h-10 text-pink-400 animate-spin mb-3" />
-                  <span className="text-sm font-bold text-pink-600 text-glow-pink animate-pulse">
+                  <Wand2 className="w-10 h-10 text-indigo-500 animate-spin mb-3" />
+                  <span className="text-sm font-bold text-indigo-700 animate-pulse">
                     Đang truyền năng lượng vào tinh tú... 🌌
                   </span>
                 </motion.div>
@@ -252,8 +252,8 @@ export default function Manifestation({
             </AnimatePresence>
           </form>
         ) : (
-          <div className="text-center py-8 text-sm text-slate-500 font-semibold flex flex-col items-center justify-center gap-3 bg-white/30 rounded-2xl border border-white/50">
-            <Info className="w-8 h-8 text-pink-300" />
+          <div className="text-center py-8 text-sm text-slate-600 font-semibold flex flex-col items-center justify-center gap-3 bg-white/30 rounded-2xl border border-white/50">
+            <Info className="w-8 h-8 text-indigo-400" />
             <p>Vui lòng đăng nhập ở góc trái màn hình để bắt đầu hành trình Manifest!</p>
           </div>
         )}
