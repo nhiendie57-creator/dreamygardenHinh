@@ -541,7 +541,7 @@ export default function CharacterSection({ isAdmin, showToast }: CharacterSectio
                 <h4 className="text-xs uppercase tracking-widest font-bold text-slate-500 mb-2">
                   Tiểu Sử Phiêu Lưu
                 </h4>
-                <div className="text-sm leading-relaxed custom-scroll pr-2 max-h-48 overflow-y-auto whitespace-pre-line text-slate-700/90 font-medium">
+                <div className="text-sm leading-loose whitespace-pre-line text-slate-700/90 font-medium">
                   {selectedCharacter.plot}
                 </div>
               </div>
