@@ -19,7 +19,7 @@ export default function Navbar({ activeTab, onChangeTab }: NavbarProps) {
   return (
     <nav 
       id="navbar"
-      className="absolute top-6 right-6 z-[100] flex items-center gap-1.5 p-1.5 rounded-full glass-panel shadow-lg"
+      className="absolute top-3 right-3 sm:top-6 sm:right-6 z-[100] flex items-center gap-0.5 sm:gap-1.5 p-1 sm:p-1.5 rounded-full glass-panel shadow-lg max-w-[calc(100vw-1.5rem)] sm:max-w-none"
     >
       {tabs.map((tab) => {
         const Icon = tab.icon;
@@ -28,7 +28,7 @@ export default function Navbar({ activeTab, onChangeTab }: NavbarProps) {
           <button
             key={tab.id}
             onClick={() => onChangeTab(tab.id)}
-            className={`px-3.5 py-1.5 rounded-full text-xs font-bold tracking-wide flex items-center gap-1.5 transition-all duration-300 ${
+            className={`px-1.5 sm:px-3.5 py-1.5 rounded-full text-xs font-bold tracking-wide flex items-center gap-1.5 transition-all duration-300 shrink-0 ${
               isActive
                 ? "bg-white/70 text-pink-600 shadow-sm border border-white/50"
                 : "text-slate-700 hover:bg-white/30 hover:text-pink-500"
