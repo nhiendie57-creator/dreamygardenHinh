@@ -179,7 +179,7 @@ export default function App() {
         </main>
 
         {/* Footer Copyright detail */}
-        <footer className="fixed bottom-4 right-6 text-[10px] text-pink-600/75 select-none font-bold tracking-wider opacity-85 hover:opacity-100 transition z-40">
+        <footer className="fixed bottom-4 right-6 text-[10px] text-white-600/75 select-none font-bold tracking-wider opacity-85 hover:opacity-100 transition z-40">
           © 2026 DREAMY GARDEN by Ngữ Hinh • ALL RIGHTS RESERVED
         </footer>
       </div>
