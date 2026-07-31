@@ -3,7 +3,7 @@ import { collection, doc, onSnapshot, updateDoc, setDoc, deleteDoc, addDoc, quer
 import { db } from "../config/firebase";
 import { Character } from "../types";
 // Đã sửa lại tên thư viện chuẩn để Vercel không báo lỗi
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import { Heart, Plus, Trash2, Edit2, X, Eye, Sparkles, Upload, Loader2, Save } from "lucide-react";
 
 interface CharacterSectionProps {
