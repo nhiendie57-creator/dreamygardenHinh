@@ -1,4 +1,4 @@
-export type TabType = "home" | "characters" | "confession" | "notes" | "socials";
+export type TabType = "home" | "characters" | "confession" | "notes" | "manifestation" | "socials";
 
 export interface UserProfile {
   username: string;
