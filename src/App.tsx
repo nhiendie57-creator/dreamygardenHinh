@@ -149,13 +149,14 @@ export default function App() {
                   customBgUrl={customBgUrl}
                 />
               )}
-              {activeTab === "characters" && (
-                <CharacterSection
-                  isAdmin={isAdmin}
-                  showToast={showToast}
-                  userHighestStreak={currentUser?.highestStreak || 0}
-                />
-              )}
+  {activeTab === "characters" && (
+  <CharacterSection
+    isAdmin={isAdmin}
+    currentUser={currentUser}
+    onUpdateUser={handleUpdateUser}
+    showToast={showToast}
+  />
+)}
               {activeTab === "confession" && (
                 <ConfessionNotes
                   type="confession"
