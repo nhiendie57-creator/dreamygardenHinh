@@ -73,6 +73,11 @@ export default function Manifestation({
     displayStreak = 0;
   }
 
+  // Kỷ lục chuỗi cao nhất từng đạt được - KHÔNG BAO GIỜ GIẢM, kể cả khi đứt chuỗi hiện tại.
+  // Đây là con số dùng để mở khóa nhân vật (unlock theo mốc), để bạn nào lỡ quên 1 ngày
+  // cũng không bị "tước" lại link đã mở khóa trước đó.
+  const highestStreak = currentUser?.highestStreak || 0;
+
   const historyList = currentUser?.manifestHistory || [];
   const lastWish = historyList.length > 0 ? historyList[historyList.length - 1].wish : null;
 
@@ -107,6 +112,12 @@ export default function Manifestation({
       streakIncreased = true;
     }
 
+    // Cập nhật kỷ lục cao nhất nếu chuỗi hiện tại vượt qua kỷ lục cũ.
+    // Đây chính là con số "vĩnh viễn" dùng để xét mốc mở khóa nhân vật.
+    const previousHighest = currentUser.highestStreak || 0;
+    const newHighestStreak = Math.max(previousHighest, newStreak);
+    const justBrokeRecord = newHighestStreak > previousHighest;
+
     const currentWish = wish.trim();
     // Lưu chính xác tới từng giây của lúc bấm gửi để không bao giờ bị lệch múi giờ nữa
     const exactTimeNow = new Date().toISOString(); 
@@ -118,6 +129,7 @@ export default function Manifestation({
       const updatedUser: UserProfile = {
         ...currentUser,
         currentStreak: newStreak,
+        highestStreak: newHighestStreak,
         lastManifestDate: exactTimeNow, 
         manifestHistory: [...historyList, { wish: currentWish, date: exactTimeNow }],
       };
@@ -126,6 +138,7 @@ export default function Manifestation({
         userRef,
         {
           currentStreak: newStreak,
+          highestStreak: newHighestStreak,
           lastManifestDate: exactTimeNow,
           manifestHistory: arrayUnion({
             wish: currentWish,
@@ -148,7 +161,9 @@ export default function Manifestation({
       setTimeout(() => {
         onUpdateUser(updatedUser);
         setShowParticles(false);
-        if (streakIncreased) {
+        if (justBrokeRecord) {
+          showToast(`Kỷ lục mới! ✨ ${newHighestStreak} ngày liên tiếp - có thể đã mở khóa nhân vật mới!`, "success");
+        } else if (streakIncreased) {
           showToast(`Điều ước cất cánh! Streak tăng lên: ✨ ${newStreak} ngày`, "success");
         } else {
           showToast("Vũ trụ đã ghi nhận thêm điều ước của bạn! ✨", "info");
@@ -196,7 +211,7 @@ export default function Manifestation({
                   }}
                   transition={{ duration: 2, delay: p.delay, ease: "easeOut" }}
                 >
-                  {Math.random() > 0.5 ? "🦋" : "✨"}
+                  {Math.random() > 0.5 ? "🎀" : "✨"}
                 </motion.div>
               ))}
             </div>
@@ -209,13 +224,20 @@ export default function Manifestation({
             Nhật Ký Manifestation
           </span>
           {currentUser ? (
-            <motion.div 
-              className="text-sm font-bold text-indigo-600 bg-indigo-50/90 px-4 py-2 rounded-full shadow-sm border border-indigo-200 flex items-center gap-2"
-              animate={{ scale: [1, 1.02, 1] }}
-              transition={{ repeat: Infinity, duration: 2 }}
-            >
-              ✨ {displayStreak} Ngày Nhiệm Màu
-            </motion.div>
+            <div className="flex flex-col items-end gap-1">
+              <motion.div 
+                className="text-sm font-bold text-indigo-600 bg-indigo-50/90 px-4 py-2 rounded-full shadow-sm border border-indigo-200 flex items-center gap-2"
+                animate={{ scale: [1, 1.02, 1] }}
+                transition={{ repeat: Infinity, duration: 2 }}
+              >
+                ✨ {displayStreak} Ngày Nhiệm Màu
+              </motion.div>
+              {highestStreak > 0 && (
+                <span className="text-[10px] font-semibold text-indigo-500/80 pr-1">
+                  Kỷ lục: {highestStreak} ngày
+                </span>
+              )}
+            </div>
           ) : (
             <span className="text-xs font-semibold text-slate-500 bg-white/40 px-3 py-1.5 rounded-full">
               Chưa Đăng Nhập
