@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { createPortal } from "react-dom";
 import { collection, doc, onSnapshot, updateDoc, setDoc, deleteDoc, addDoc, query, orderBy } from "firebase/firestore";
 import { db } from "../config/firebase";
 import { Character } from "../types";
@@ -855,11 +854,9 @@ export default function CharacterSection({ isAdmin, showToast, userHighestStreak
         </AnimatePresence>
       </div>
 
-      {/* Character Detail Popup Modal - dùng createPortal để thoát khỏi stacking context
-          của khối chuyển tab (motion.div dùng transform ở App.tsx tạo ra context riêng),
-          nếu không modal sẽ bị khung Admin Portal (z-90) che mất dù z-index cao hơn */}
+      {/* Character Detail Popup Modal */}
       <AnimatePresence>
-        {selectedCharacter && createPortal(
+        {selectedCharacter && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -1062,14 +1059,13 @@ export default function CharacterSection({ isAdmin, showToast, userHighestStreak
                   </div>
                 )}
             </motion.div>
-          </motion.div>,
-          document.body
+          </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Vibe Gallery Lightbox - cũng dùng createPortal vì được mở từ bên trong modal ở trên */}
+      {/* Vibe Gallery Lightbox */}
       <AnimatePresence>
-        {selectedGalleryImage && createPortal(
+        {selectedGalleryImage && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -1104,8 +1100,7 @@ export default function CharacterSection({ isAdmin, showToast, userHighestStreak
                 </p>
               )}
             </motion.div>
-          </motion.div>,
-          document.body
+          </motion.div>
         )}
       </AnimatePresence>
     </div>
