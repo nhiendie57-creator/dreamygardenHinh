@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { collection, addDoc, query, orderBy, onSnapshot, limit, deleteDoc, doc } from "firebase/firestore";
+import { collection, addDoc, query, orderBy, limit, deleteDoc, doc, getDocs, startAfter } from "firebase/firestore";
 import { db } from "../config/firebase";
 import { ConfessionNote, UserProfile } from "../types";
 import { motion, AnimatePresence } from "motion/react";
-// Thay đổi các icon phù hợp với ý tưởng / góp ý
-import { Send, Heart, X, Calendar, Lightbulb, Sparkles, MessageCircleCode } from "lucide-react";
+// Đã thêm Loader2 để làm icon loading cho nút xem thêm
+import { Send, Heart, X, Calendar, Lightbulb, Sparkles, MessageCircleCode, Loader2 } from "lucide-react";
 
 interface ConfessionNotesProps {
   currentUser: UserProfile | null;
@@ -12,9 +12,7 @@ interface ConfessionNotesProps {
   showToast: (message: string, type: "success" | "error" | "info") => void;
 }
 
-// --- Gộp Confession + Idea Box vào chung 1 trang ---
-// "sourceType" CHỈ tồn tại ở client (không lưu vào Firestore, không cần sửa types.ts)
-// để biết 1 item lấy về là từ collection "confessions" hay "notes".
+// "sourceType" CHỈ tồn tại ở client
 type PostType = "confession" | "notes";
 type NoteWithSource = ConfessionNote & { sourceType: PostType };
 
@@ -40,6 +38,15 @@ export default function ConfessionNotes({
   const [selectedColor, setSelectedColor] = useState("#FFD1DC"); // pastel pink
   const [loading, setLoading] = useState(false);
 
+  // --- State phục vụ Phân trang (Pagination) ---
+  const [lastConfessionDoc, setLastConfessionDoc] = useState<any>(null);
+  const [lastNoteDoc, setLastNoteDoc] = useState<any>(null);
+  const [hasMoreConfessions, setHasMoreConfessions] = useState(true);
+  const [hasMoreNotes, setHasMoreNotes] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  
+  const LIMIT_PER_PAGE = 20; // Chỉ lấy 20 mục mỗi loại (Tổng max 40 cho 1 lần tải)
+
   const colors = [
     { value: "#FFD1DC", label: "Hồng Phấn" },
     { value: "#E6E6FA", label: "Tím Mộng" },
@@ -48,45 +55,80 @@ export default function ConfessionNotes({
     { value: "#FFE4E1", label: "Misty Rose" },
   ];
 
-  // Sync 2 collection song song, mỗi item được gắn thêm sourceType cục bộ
+  // Lấy dữ liệu lần đầu (Thay thế onSnapshot bằng getDocs)
   useEffect(() => {
-    const qConfession = query(collection(db, "confessions"), orderBy("createdAt", "desc"), limit(40));
-    const unsubConfession = onSnapshot(qConfession, (snapshot) => {
-      const fetched: NoteWithSource[] = [];
-      snapshot.forEach((d) => {
-        fetched.push({ id: d.id, ...d.data(), sourceType: "confession" } as NoteWithSource);
-      });
-      setConfessionItems(
-        fetched.length > 0
-          ? fetched
-          : DEFAULT_CONFESSIONS.map((n) => ({ ...n, sourceType: "confession" as const }))
-      );
-    }, (err) => {
-      console.error(err);
-      setConfessionItems(DEFAULT_CONFESSIONS.map((n) => ({ ...n, sourceType: "confession" as const })));
-    });
+    const fetchInitialData = async () => {
+      try {
+        // Tải danh sách Confession
+        const qConfession = query(collection(db, "confessions"), orderBy("createdAt", "desc"), limit(LIMIT_PER_PAGE));
+        const snapConfession = await getDocs(qConfession);
+        const fetchedC: NoteWithSource[] = [];
+        snapConfession.forEach((d) => {
+          fetchedC.push({ id: d.id, ...d.data(), sourceType: "confession" } as NoteWithSource);
+        });
+        
+        setConfessionItems(fetchedC.length > 0 ? fetchedC : DEFAULT_CONFESSIONS.map((n) => ({ ...n, sourceType: "confession" as const })));
+        setLastConfessionDoc(snapConfession.docs.length > 0 ? snapConfession.docs[snapConfession.docs.length - 1] : null);
+        setHasMoreConfessions(snapConfession.docs.length === LIMIT_PER_PAGE);
 
-    const qNotes = query(collection(db, "notes"), orderBy("createdAt", "desc"), limit(40));
-    const unsubNotes = onSnapshot(qNotes, (snapshot) => {
-      const fetched: NoteWithSource[] = [];
-      snapshot.forEach((d) => {
-        fetched.push({ id: d.id, ...d.data(), sourceType: "notes" } as NoteWithSource);
-      });
-      setNoteItems(
-        fetched.length > 0
-          ? fetched
-          : DEFAULT_NOTES.map((n) => ({ ...n, sourceType: "notes" as const }))
-      );
-    }, (err) => {
-      console.error(err);
-      setNoteItems(DEFAULT_NOTES.map((n) => ({ ...n, sourceType: "notes" as const })));
-    });
-
-    return () => {
-      unsubConfession();
-      unsubNotes();
+        // Tải danh sách Notes (Ý tưởng)
+        const qNotes = query(collection(db, "notes"), orderBy("createdAt", "desc"), limit(LIMIT_PER_PAGE));
+        const snapNotes = await getDocs(qNotes);
+        const fetchedN: NoteWithSource[] = [];
+        snapNotes.forEach((d) => {
+          fetchedN.push({ id: d.id, ...d.data(), sourceType: "notes" } as NoteWithSource);
+        });
+        
+        setNoteItems(fetchedN.length > 0 ? fetchedN : DEFAULT_NOTES.map((n) => ({ ...n, sourceType: "notes" as const })));
+        setLastNoteDoc(snapNotes.docs.length > 0 ? snapNotes.docs[snapNotes.docs.length - 1] : null);
+        setHasMoreNotes(snapNotes.docs.length === LIMIT_PER_PAGE);
+      } catch (err) {
+        console.error(err);
+      }
     };
+
+    fetchInitialData();
   }, []);
+
+  // Hàm Xem thêm (Tối ưu theo Filter: Đang xem loại nào thì chỉ gọi lấy thêm loại đó)
+  const handleLoadMore = async () => {
+    setLoadingMore(true);
+    try {
+      // Nếu đang xem "Tất cả" hoặc "Tâm sự", và vẫn còn Tâm sự để tải
+      if ((viewFilter === "all" || viewFilter === "confession") && hasMoreConfessions && lastConfessionDoc) {
+        const qC = query(collection(db, "confessions"), orderBy("createdAt", "desc"), startAfter(lastConfessionDoc), limit(LIMIT_PER_PAGE));
+        const snapC = await getDocs(qC);
+        const newC: NoteWithSource[] = [];
+        snapC.forEach(d => newC.push({ id: d.id, ...d.data(), sourceType: "confession" } as NoteWithSource));
+        
+        setConfessionItems(prev => {
+          const existingIds = new Set(prev.map(p => p.id));
+          return [...prev, ...newC.filter(c => !existingIds.has(c.id))];
+        });
+        setLastConfessionDoc(snapC.docs.length > 0 ? snapC.docs[snapC.docs.length - 1] : null);
+        setHasMoreConfessions(snapC.docs.length === LIMIT_PER_PAGE);
+      }
+
+      // Nếu đang xem "Tất cả" hoặc "Ý tưởng", và vẫn còn Ý tưởng để tải
+      if ((viewFilter === "all" || viewFilter === "notes") && hasMoreNotes && lastNoteDoc) {
+        const qN = query(collection(db, "notes"), orderBy("createdAt", "desc"), startAfter(lastNoteDoc), limit(LIMIT_PER_PAGE));
+        const snapN = await getDocs(qN);
+        const newN: NoteWithSource[] = [];
+        snapN.forEach(d => newN.push({ id: d.id, ...d.data(), sourceType: "notes" } as NoteWithSource));
+        
+        setNoteItems(prev => {
+          const existingIds = new Set(prev.map(p => p.id));
+          return [...prev, ...newN.filter(n => !existingIds.has(n.id))];
+        });
+        setLastNoteDoc(snapN.docs.length > 0 ? snapN.docs[snapN.docs.length - 1] : null);
+        setHasMoreNotes(snapN.docs.length === LIMIT_PER_PAGE);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   // Gộp 2 danh sách lại, sắp xếp theo thời gian, rồi lọc theo viewFilter
   const displayedItems = useMemo(() => {
@@ -126,7 +168,16 @@ export default function ConfessionNotes({
         createdAt: new Date().toISOString(),
       };
 
-      await addDoc(collection(db, collectionName), payload);
+      const docRef = await addDoc(collection(db, collectionName), payload);
+      
+      // Tự động đẩy nội dung mới lên giao diện ngay lập tức mà không cần load lại trang
+      const newItem = { id: docRef.id, ...payload, sourceType: postType } as NoteWithSource;
+      if (postType === "confession") {
+        setConfessionItems(prev => [newItem, ...prev]);
+      } else {
+        setNoteItems(prev => [newItem, ...prev]);
+      }
+
       showToast(
         postType === "confession"
           ? "Thư tâm sự đã được ghim lên bảng mây! 💌"
@@ -160,6 +211,14 @@ export default function ConfessionNotes({
     if (window.confirm("Bạn có chắc muốn tháo dỡ nội dung này khỏi khu vườn?")) {
       try {
         await deleteDoc(doc(db, collectionName, item.id));
+        
+        // Cập nhật lại UI sau khi xóa thành công
+        if (item.sourceType === "confession") {
+          setConfessionItems(prev => prev.filter(i => i.id !== item.id));
+        } else {
+          setNoteItems(prev => prev.filter(i => i.id !== item.id));
+        }
+        
         showToast("Đã tháo gỡ thành công.", "info");
       } catch (err) {
         console.error(err);
@@ -167,6 +226,12 @@ export default function ConfessionNotes({
       }
     }
   };
+
+  // Xác định xem có cần hiện nút xem thêm không dựa vào Filter hiện tại
+  const shouldShowLoadMore = 
+    (viewFilter === "all" && (hasMoreConfessions || hasMoreNotes)) ||
+    (viewFilter === "confession" && hasMoreConfessions) ||
+    (viewFilter === "notes" && hasMoreNotes);
 
   return (
     <div className="w-full max-w-5xl mx-auto px-4 py-8 z-10 flex flex-col gap-6 relative">
@@ -364,6 +429,32 @@ export default function ConfessionNotes({
                 );
               })}
             </AnimatePresence>
+
+            {/* Nút Xem Thêm Đặt Dưới Cùng (Style Ombre Xanh Tím Pastel) */}
+            {shouldShowLoadMore && (
+              <div className="col-span-1 md:col-span-2 flex justify-center mt-4 mb-4 z-10">
+                <button
+                  onClick={handleLoadMore}
+                  disabled={loadingMore}
+                  className="relative px-8 py-3 rounded-full font-bold text-indigo-800 transition-all duration-300 flex items-center gap-2 overflow-hidden group shadow-[0_4px_15px_rgba(167,139,250,0.3)] hover:shadow-[0_6px_25px_rgba(167,139,250,0.5)] hover:-translate-y-1"
+                >
+                  {/* Lớp nền Khung ombre xanh tím pastel */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-cyan-200 via-blue-200 to-purple-300 opacity-80 group-hover:opacity-100 transition-opacity duration-300 backdrop-blur-md" />
+                  
+                  {/* Lớp viền mỏng tạo hiệu ứng kính (glassmorphism) */}
+                  <div className="absolute inset-0 rounded-full border border-white/60" />
+
+                  {/* Nội dung chữ và icon */}
+                  <span className="relative z-10 flex items-center gap-2 tracking-wide text-sm">
+                    {loadingMore ? (
+                      <><Loader2 className="w-4 h-4 animate-spin text-indigo-600" /> Đang thu thập...</>
+                    ) : (
+                      "Tải thêm thư và ý tưởng ✨"
+                    )}
+                  </span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
