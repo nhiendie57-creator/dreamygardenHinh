@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { collection, doc, onSnapshot, updateDoc, setDoc, deleteDoc, addDoc, query, orderBy } from "firebase/firestore";
+import { collection, doc, updateDoc, setDoc, deleteDoc, addDoc, query, orderBy, getDocs, limit, startAfter } from "firebase/firestore";
 import { db } from "../config/firebase";
 import { Character, UserProfile, KeyTier, UserKeys } from "../types";
 // Đã sửa lại tên thư viện chuẩn để Vercel không báo lỗi
@@ -91,6 +91,11 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
   const [showInventory, setShowInventory] = useState(false);
   const [unlockingId, setUnlockingId] = useState<string | null>(null);
 
+  // States hỗ trợ phân trang (Tối ưu Firestore)
+  const [lastDoc, setLastDoc] = useState<any>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+
   // Create / Edit Form State
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -119,27 +124,82 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
   const [formRequiredKeyTier, setFormRequiredKeyTier] = useState<KeyTier | "">("");
   const [formUnlockRewardLink, setFormUnlockRewardLink] = useState("");
 
-  // Firestore Realtime Synchronization
+  // Tối ưu: Lấy dữ liệu lần đầu tiên (Giới hạn 10 nhân vật)
   useEffect(() => {
-    const q = query(collection(db, "characters"), orderBy("createdAt", "desc"));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const list: Character[] = [];
+    const fetchInitialCharacters = async () => {
+      try {
+        const q = query(
+          collection(db, "characters"),
+          orderBy("createdAt", "desc"),
+          limit(10)
+        );
+        const snapshot = await getDocs(q);
+
+        const list: Character[] = [];
+        snapshot.forEach((doc) => {
+          list.push({ id: doc.id, ...doc.data() } as Character);
+        });
+
+        if (list.length === 0) {
+          setCharacters(DEFAULT_CHARACTERS);
+        } else {
+          setCharacters([...list, ...DEFAULT_CHARACTERS.filter(def => !list.some(l => l.name === def.name))]);
+        }
+
+        if (snapshot.docs.length > 0) {
+          setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
+        }
+        if (snapshot.docs.length < 10) {
+          setHasMore(false);
+        }
+      } catch (err) {
+        console.error(err);
+        setCharacters(DEFAULT_CHARACTERS);
+      }
+    };
+
+    fetchInitialCharacters();
+  }, []);
+
+  // Hàm xử lý Xem thêm
+  const handleLoadMore = async () => {
+    if (!lastDoc) return;
+    setLoadingMore(true);
+
+    try {
+      const q = query(
+        collection(db, "characters"),
+        orderBy("createdAt", "desc"),
+        startAfter(lastDoc),
+        limit(10)
+      );
+      const snapshot = await getDocs(q);
+
+      const newList: Character[] = [];
       snapshot.forEach((doc) => {
-        list.push({ id: doc.id, ...doc.data() } as Character);
+        newList.push({ id: doc.id, ...doc.data() } as Character);
       });
 
-      if (list.length === 0) {
-        setCharacters(DEFAULT_CHARACTERS);
-      } else {
-        setCharacters([...list, ...DEFAULT_CHARACTERS.filter(def => !list.some(l => l.name === def.name))]);
-      }
-    }, (err) => {
-      console.error(err);
-      setCharacters(DEFAULT_CHARACTERS);
-    });
+      setCharacters((prev) => {
+          // Lọc trùng lặp để đảm bảo an toàn khi render
+          const existingIds = new Set(prev.map(c => c.id));
+          const uniqueNewList = newList.filter(c => !existingIds.has(c.id));
+          return [...prev, ...uniqueNewList];
+      });
 
-    return () => unsubscribe();
-  }, []);
+      if (snapshot.docs.length > 0) {
+        setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
+      }
+      if (snapshot.docs.length < 10) {
+        setHasMore(false);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
 
   // Collect all unique tags
   const allTags = ["All", ...Array.from(new Set(characters.flatMap((c) => c.tags)))];
@@ -152,7 +212,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
   const userKeys = currentUser?.keys || EMPTY_KEYS;
   const unlockedIds = currentUser?.unlockedCharacterIds || [];
 
-  // Like interaction with realtime Firestore sync and bouncy pop
+  // Like interaction with realtime UI update
   const handleLike = async (character: Character, event: React.MouseEvent) => {
     event.stopPropagation();
     try {
@@ -177,14 +237,19 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
           unlockRewardLink: ext.unlockRewardLink || "",
           createdAt: new Date().toISOString(),
         });
-        showToast(`Đã thả tim cho ${character.name}! 💕`, "success");
       } else {
         const charRef = doc(db, "characters", character.id);
         await updateDoc(charRef, {
           likes: character.likes + 1,
         });
-        showToast(`Đã thả tim cho ${character.name}! 💕`, "success");
       }
+      
+      // Tối ưu UI: Cộng tim trực tiếp trên giao diện không cần chờ tải lại data
+      setCharacters((prev) =>
+        prev.map((c) => (c.id === character.id ? { ...c, likes: c.likes + 1 } : c))
+      );
+      
+      showToast(`Đã thả tim cho ${character.name}! 💕`, "success");
     } catch (err) {
       console.error(err);
       showToast("Có lỗi khi thả tim!", "error");
@@ -321,9 +386,16 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
 
       if (editingId) {
         await setDoc(doc(db, "characters", editingId), characterData, { merge: true });
+        
+        // Cập nhật state trực tiếp
+        setCharacters(prev => prev.map(c => c.id === editingId ? { ...c, ...characterData, id: editingId } : c));
+        
         showToast(`Cập nhật nhân vật ${formName} thành công!`, "success");
       } else {
-        await addDoc(collection(db, "characters"), characterData);
+        const docRef = await addDoc(collection(db, "characters"), characterData);
+        // Cập nhật state trực tiếp cho nhân vật mới (thêm vào đầu danh sách)
+        setCharacters(prev => [{ id: docRef.id, ...characterData } as Character, ...prev]);
+        
         showToast(`Gieo mầm nhân vật ${formName} thành công! 🌱`, "success");
       }
 
@@ -355,6 +427,8 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
     if (window.confirm(`Bạn có chắc chắn muốn xóa nhân vật ${name}?`)) {
       try {
         await deleteDoc(doc(db, "characters", id));
+        // Xóa khỏi state hiện tại
+        setCharacters(prev => prev.filter(c => c.id !== id));
         showToast(`Đã xóa nhân vật ${name}.`, "info");
       } catch (err) {
         console.error(err);
@@ -939,6 +1013,23 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
         </AnimatePresence>
       </div>
 
+      {/* Nút Xem Thêm Đặt Dưới Cùng */}
+      {hasMore && (
+        <div className="w-full flex justify-center mt-8 z-10">
+          <button
+            onClick={handleLoadMore}
+            disabled={loadingMore}
+            className="px-6 py-2.5 bg-white/40 hover:bg-white/70 text-pink-600 font-bold rounded-full shadow-sm border border-pink-200 transition-all flex items-center gap-2"
+          >
+            {loadingMore ? (
+              <><Loader2 className="w-4 h-4 animate-spin" /> Đang tải...</>
+            ) : (
+              "Xem thêm nhân vật"
+            )}
+          </button>
+        </div>
+      )}
+
       {/* Character Detail Popup Modal */}
       <AnimatePresence>
         {selectedCharacter && (
@@ -1101,9 +1192,6 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
 
                     <div className="grid grid-cols-3 gap-2 [grid-auto-flow:dense]">
                       {(selectedCharacter as CharacterExt).gallery!.map((img, i) => {
-                        // Cứ mỗi 6 ảnh thì có 1 ảnh "nổi bật" chiếm khối vuông 2x2,
-                        // còn lại là ô vuông nhỏ — TẤT CẢ đều dùng aspect-square
-                        // nên ảnh không bao giờ bị bẹp/kéo dãn nữa.
                         const isFeatured = i % 6 === 0;
                         const span = isFeatured ? "col-span-2 row-span-2" : "";
                         const tilt = i % 3 === 0 ? "-rotate-1" : i % 3 === 1 ? "rotate-1" : "rotate-0";
