@@ -16,20 +16,23 @@ type CharacterStatus = "in-progress" | "unlocked" | "locked";
 
 const CHARACTER_STATUS_META: Record<
   CharacterStatus,
-  { label: string; badge: string; icon: typeof Lock }
+  { label: string; shortLabel: string; badge: string; icon: typeof Lock }
 > = {
   "in-progress": {
     label: "Đang tiến hành",
+    shortLabel: "Đang tiến hành",
     badge: "text-amber-600 bg-amber-50 border-amber-200",
     icon: Clock,
   },
   unlocked: {
     label: "Đã mở khoá (vui lòng tham gia Discord để nhận)",
+    shortLabel: "Đã mở khoá",
     badge: "text-emerald-600 bg-emerald-50 border-emerald-200",
     icon: Unlock,
   },
   locked: {
     label: "Đã khoá",
+    shortLabel: "Đã khoá",
     badge: "text-slate-500 bg-slate-100 border-slate-200",
     icon: Lock,
   },
@@ -294,7 +297,7 @@ export default function CharacterSection({ isAdmin, showToast }: CharacterSectio
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-display text-white text-glow-pearl flex items-center gap-2">
           <Sparkles className="w-5 h-5 text-pink-400 animate-spin-slow" />
-          Nhân Vật Nhiệm Màu
+          Bản thảo đang chờ bạn
         </h2>
         {isAdmin && (
           <button
@@ -594,9 +597,23 @@ export default function CharacterSection({ isAdmin, showToast }: CharacterSectio
               <h3 className="text-lg font-bold text-slate-800 font-display group-hover:text-pink-600 transition-colors">
                 {char.name}
               </h3>
-              <p className="text-[11px] text-slate-600 font-medium px-4 mt-1 mb-4 h-8 overflow-hidden line-clamp-2">
+              <p className="text-[11px] text-slate-600 font-medium px-4 mt-1 mb-2 h-8 overflow-hidden line-clamp-2">
                 {char.role}
               </p>
+
+              {/* Status Badge - hiện ngay trên card, không cần bấm Chi tiết */}
+              {(char as CharacterExt).status && (() => {
+                const meta = CHARACTER_STATUS_META[(char as CharacterExt).status!];
+                const Icon = meta.icon;
+                return (
+                  <div
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-[9px] font-bold mb-3 max-w-full ${meta.badge}`}
+                  >
+                    <Icon className="w-3 h-3 flex-shrink-0" />
+                    <span className="truncate">{meta.shortLabel}</span>
+                  </div>
+                );
+              })()}
 
               {/* Tag Capsules */}
               <div className="flex flex-wrap gap-1 justify-center mb-4">
