@@ -458,7 +458,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
       <div className="flex justify-between items-center flex-wrap gap-2">
         <h2 className="text-2xl font-display text-white text-glow-pearl flex items-center gap-2">
           <Sparkles className="w-5 h-5 text-pink-400 animate-spin-slow" />
-          Nhân Vật Nhiệm Màu
+          Bản Thảo Đang Chờ Bạn
         </h2>
         <div className="flex items-center gap-2">
           <button
@@ -1090,17 +1090,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                 </div>
               </div>
 
-              {/* Detailed Plot (Cốt truyện phiêu lưu) */}
-              <div className="mt-6 pt-5 border-t border-pink-100 text-slate-700">
-                <h4 className="text-xs uppercase tracking-widest font-bold text-slate-500 mb-2">
-                  Tiểu Sử Phiêu Lưu
-                </h4>
-                <div className="text-sm leading-loose whitespace-pre-line text-slate-700/90 font-medium">
-                  {selectedCharacter.plot}
-                </div>
-              </div>
-
-              {/* (3) Vibe Board - lưới ảnh phong cách Instagram */}
+              {/* (3) Vibe Board — đặt NGAY dưới avatar/tên, TRƯỚC Tiểu Sử, dạng bento moodboard */}
               {(selectedCharacter as CharacterExt).gallery &&
                 (selectedCharacter as CharacterExt).gallery!.length > 0 && (
                   <div className="mt-6 pt-5 border-t border-pink-100">
@@ -1108,23 +1098,52 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                       <Images className="w-3.5 h-3.5 text-purple-400" />
                       Vibe Board
                     </h4>
-                    <div className="grid grid-cols-3 gap-1.5">
-                      {(selectedCharacter as CharacterExt).gallery!.map((img) => (
-                        <div
-                          key={img.id}
-                          className="relative aspect-square rounded-lg overflow-hidden group"
-                        >
-                          <img
-                            src={img.url}
-                            alt={img.caption || selectedCharacter.name}
-                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                            referrerPolicy="no-referrer"
-                          />
-                        </div>
-                      ))}
+
+                    <div className="grid grid-cols-6 auto-rows-[70px] gap-2">
+                      {(selectedCharacter as CharacterExt).gallery!.map((img, i) => {
+                        // Nhịp kích thước xen kẽ: 1 ảnh to, 2 ảnh nhỏ, lặp lại theo chu kỳ 3
+                        const pattern = [
+                          "col-span-4 row-span-2",
+                          "col-span-2 row-span-1",
+                          "col-span-2 row-span-1",
+                        ];
+                        const span = pattern[i % pattern.length];
+                        const tilt = i % 3 === 0 ? "-rotate-1" : i % 3 === 1 ? "rotate-1" : "rotate-0";
+
+                        return (
+                          <div
+                            key={img.id}
+                            className={`relative rounded-2xl overflow-hidden group shadow-md ring-1 ring-white/60 ${span} ${tilt} hover:rotate-0 hover:scale-[1.03] hover:z-10 hover:shadow-xl transition-all duration-300 ease-out`}
+                          >
+                            <img
+                              src={img.url}
+                              alt={img.caption || selectedCharacter.name}
+                              className="w-full h-full object-cover"
+                              referrerPolicy="no-referrer"
+                            />
+                            {/* Overlay gradient + caption chỉ hiện khi hover */}
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                            {img.caption && (
+                              <span className="absolute bottom-2 left-2.5 right-2.5 text-[9px] text-white font-semibold opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0 transition-all duration-300 drop-shadow-md line-clamp-1">
+                                {img.caption}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
+
+              {/* Detailed Plot (Cốt truyện phiêu lưu) — giờ nằm SAU Vibe Board */}
+              <div className="mt-6 pt-5 border-t border-pink-100 text-slate-700">
+                <h4 className="text-xs uppercase tracking-widest font-bold text-slate-500 mb-2">
+                  Plot: cốt truyện chính
+                </h4>
+                <div className="text-sm leading-loose whitespace-pre-line text-slate-700/90 font-medium">
+                  {selectedCharacter.plot}
+                </div>
+              </div>
 
               {/* (2) Mạch Truyện Bổ Sung (Ngoại truyện) - ngay dưới Tiểu Sử, không có trạng thái riêng */}
               {(selectedCharacter as CharacterExt).storyArcs &&
