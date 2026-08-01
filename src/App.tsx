@@ -148,7 +148,11 @@ export default function App() {
                 />
               )}
               {activeTab === "characters" && (
-                <CharacterSection isAdmin={isAdmin} showToast={showToast} />
+                <CharacterSection
+                  isAdmin={isAdmin}
+                  showToast={showToast}
+                  userHighestStreak={currentUser?.highestStreak || 0}
+                />
               )}
               {activeTab === "confession" && (
                 <ConfessionNotes
