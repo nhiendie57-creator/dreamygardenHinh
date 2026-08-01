@@ -138,7 +138,7 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -15 }}
               transition={{ duration: 0.5, ease: "easeInOut" }}
-              className="w-full h-full flex flex-col items-center justify-center"
+              className="relative z-[100] w-full h-full flex flex-col items-center justify-center"
             >
               {activeTab === "home" && (
                 <Hero
