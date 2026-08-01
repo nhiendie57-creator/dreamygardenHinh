@@ -1013,23 +1013,31 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
         </AnimatePresence>
       </div>
 
-      {/* Nút Xem Thêm Đặt Dưới Cùng */}
+            {/* Nút Xem Thêm Đặt Dưới Cùng (Style Ombre Xanh Tím Pastel) */}
       {hasMore && (
-        <div className="w-full flex justify-center mt-8 z-10">
+        <div className="w-full flex justify-center mt-8 mb-4 z-10">
           <button
             onClick={handleLoadMore}
             disabled={loadingMore}
-            className="px-6 py-2.5 bg-white/40 hover:bg-white/70 text-pink-600 font-bold rounded-full shadow-sm border border-pink-200 transition-all flex items-center gap-2"
+            className="relative px-8 py-3 rounded-full font-bold text-indigo-800 transition-all duration-300 flex items-center gap-2 overflow-hidden group shadow-[0_4px_15px_rgba(167,139,250,0.3)] hover:shadow-[0_6px_25px_rgba(167,139,250,0.5)] hover:-translate-y-1"
           >
-            {loadingMore ? (
-              <><Loader2 className="w-4 h-4 animate-spin" /> Đang tải...</>
-            ) : (
-              "Xem thêm nhân vật"
-            )}
+            {/* Lớp nền Khung ombre xanh tím pastel */}
+            <div className="absolute inset-0 bg-gradient-to-r from-cyan-200 via-blue-200 to-purple-300 opacity-80 group-hover:opacity-100 transition-opacity duration-300 backdrop-blur-md" />
+            
+            {/* Lớp viền mỏng tạo hiệu ứng kính (glassmorphism) */}
+            <div className="absolute inset-0 rounded-full border border-white/60" />
+
+            {/* Nội dung chữ và icon */}
+            <span className="relative z-10 flex items-center gap-2 tracking-wide text-sm">
+              {loadingMore ? (
+                <><Loader2 className="w-4 h-4 animate-spin text-indigo-600" /> Đang gõ cửa khu rừng...</>
+              ) : (
+                "Xem thêm nhân vật ✨"
+              )}
+            </span>
           </button>
         </div>
       )}
-
       {/* Character Detail Popup Modal */}
       <AnimatePresence>
         {selectedCharacter && (
