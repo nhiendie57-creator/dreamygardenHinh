@@ -1207,6 +1207,31 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                     })}
                   </div>
 
+                  {/* [CHỈ ADMIN] Khối cấp khoá test, không cần cày streak thật */}
+                  {isAdmin && (
+                    <div className="mt-5 pt-4 border-t border-dashed border-purple-200">
+                      <h4 className="text-xs font-bold text-purple-600 mb-1 flex items-center gap-1.5">
+                        🛠️ Cấp Khoá Test (Chỉ Admin)
+                      </h4>
+                      <p className="text-[10px] text-slate-500 mb-2">
+                        Dùng để tự test, không cần giữ streak thật.
+                      </p>
+                      <div className="grid grid-cols-4 gap-1.5">
+                        {KEY_TIER_ORDER.map((tier) => (
+                          <button
+                            key={tier}
+                            type="button"
+                            onClick={() => handleAdminGrantKey(tier)}
+                            className="flex flex-col items-center gap-0.5 px-1.5 py-2 rounded-xl border border-purple-200 bg-purple-50 hover:bg-purple-100 text-purple-700 text-[9px] font-bold transition-colors"
+                          >
+                            <span className="text-base">{KEY_TIER_META[tier].emoji}</span>
+                            +1 {KEY_TIER_META[tier].label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {unlockedCharacterNames.length > 0 && (
                     <div className="mt-5 pt-4 border-t border-slate-200">
                       <h4 className="text-xs font-bold text-slate-600 mb-2">Nhân vật đã mở khoá bằng chìa khoá</h4>
