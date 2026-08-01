@@ -1,20 +1,22 @@
 import React, { useState, useEffect } from "react";
 import { collection, doc, onSnapshot, updateDoc, setDoc, deleteDoc, addDoc, query, orderBy } from "firebase/firestore";
 import { db } from "../config/firebase";
-import { Character } from "../types";
+import { Character, UserProfile, KeyTier, UserKeys } from "../types";
 // Đã sửa lại tên thư viện chuẩn để Vercel không báo lỗi
 import { motion, AnimatePresence } from "motion/react";
-import { Heart, Plus, Trash2, Edit2, X, Eye, Sparkles, Upload, Loader2, Save, Lock, Unlock, Clock, BookOpen, Images, Maximize2, Flame, ExternalLink } from "lucide-react";
+import {
+  Heart, Plus, Trash2, Edit2, X, Eye, Sparkles, Upload, Loader2, Save,
+  Lock, Unlock, Clock, BookOpen, Images, Maximize2, ExternalLink, Backpack,
+} from "lucide-react";
 
 interface CharacterSectionProps {
   isAdmin: boolean;
+  currentUser: UserProfile | null;
+  onUpdateUser: (updatedUser: UserProfile) => void;
   showToast: (message: string, type?: "success" | "error" | "info") => void;
-  // Kỷ lục streak cao nhất của user hiện tại (currentUser?.highestStreak từ App.tsx truyền xuống)
-  // Dùng để so sánh với mốc requiredStreak của từng nhân vật.
-  userHighestStreak?: number;
 }
 
-// --- (1) Trạng thái tiến độ của nhân vật (hiển thị ngay trên profile) ---
+// --- (1) Trạng thái tiến độ của nhân vật (admin gán thủ công, hiển thị ngay trên profile) ---
 type CharacterStatus = "in-progress" | "unlocked" | "locked";
 
 const CHARACTER_STATUS_META: Record<
@@ -55,32 +57,39 @@ interface GalleryImage {
   caption?: string;
 }
 
-// NOTE: Nếu file "../types" chưa có các field này, hãy bổ sung vào interface Character:
-//   status?: "in-progress" | "unlocked" | "locked";
-//   statusReason?: string;
-//   storyArcs?: { id: string; title: string; content: string }[];
-//   gallery?: { id: string; url: string; caption?: string }[];
-//   requiredStreak?: number;   // mốc số ngày streak cần đạt để mở khóa link, do admin tự đặt (0 = không yêu cầu)
-//   unlockLink?: string;       // link được mở ra khi user đạt đủ mốc requiredStreak
-// Trong lúc chờ cập nhật types.ts, component dùng type mở rộng CharacterExt bên dưới
-// để không phá vỡ build hiện tại.
+// --- (4) Hệ thống Chìa Khoá — đổi từ streak Manifest (xem Manifestation.tsx), dùng để mở khoá nhân vật ---
+// NOTE: metadata này lặp lại giống hệt bên Manifestation.tsx để 2 nơi luôn khớp mốc ngày/tên gọi.
+const KEY_TIER_META: Record<
+  KeyTier,
+  { label: string; threshold: number; emoji: string; badge: string }
+> = {
+  bronze: { label: "Đồng", threshold: 10, emoji: "🥉", badge: "text-orange-700 bg-orange-50 border-orange-200" },
+  silver: { label: "Bạc", threshold: 20, emoji: "🥈", badge: "text-slate-600 bg-slate-100 border-slate-300" },
+  gold: { label: "Vàng", threshold: 30, emoji: "🥇", badge: "text-amber-600 bg-amber-50 border-amber-300" },
+  diamond: { label: "Kim Cương", threshold: 40, emoji: "💎", badge: "text-cyan-600 bg-cyan-50 border-cyan-300" },
+};
+const KEY_TIER_ORDER: KeyTier[] = ["bronze", "silver", "gold", "diamond"];
+const EMPTY_KEYS: UserKeys = { bronze: 0, silver: 0, gold: 0, diamond: 0 };
+
+// Type mở rộng CharacterExt - khớp với các field đã có trong types.ts hiện tại
 type CharacterExt = Character & {
   status?: CharacterStatus;
   statusReason?: string;
   storyArcs?: StoryArc[];
   gallery?: GalleryImage[];
-  requiredStreak?: number;
-  unlockLink?: string;
+  requiredKeyTier?: KeyTier | null;
+  unlockRewardLink?: string;
 };
 
 // Đã làm trống danh sách mặc định để vườn chỉ hiện nhân vật do admin tạo
 const DEFAULT_CHARACTERS: Character[] = [];
 
-export default function CharacterSection({ isAdmin, showToast, userHighestStreak = 0 }: CharacterSectionProps) {
+export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, showToast }: CharacterSectionProps) {
   const [characters, setCharacters] = useState<Character[]>([]);
   const [activeFilter, setActiveFilter] = useState("All");
   const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
-  const [selectedGalleryImage, setSelectedGalleryImage] = useState<GalleryImage | null>(null);
+  const [showInventory, setShowInventory] = useState(false);
+  const [unlockingId, setUnlockingId] = useState<string | null>(null);
 
   // Create / Edit Form State
   const [showForm, setShowForm] = useState(false);
@@ -106,9 +115,9 @@ export default function CharacterSection({ isAdmin, showToast, userHighestStreak
   const [galleryCaption, setGalleryCaption] = useState("");
   const [galleryUploading, setGalleryUploading] = useState(false);
 
-  // (4) Mốc mở khóa theo Streak - chị tự đặt số ngày + link cho từng nhân vật, không hard-code sẵn
-  const [formRequiredStreak, setFormRequiredStreak] = useState("");
-  const [formUnlockLink, setFormUnlockLink] = useState("");
+  // (4) Yêu cầu Chìa Khoá để mở khoá nhân vật
+  const [formRequiredKeyTier, setFormRequiredKeyTier] = useState<KeyTier | "">("");
+  const [formUnlockRewardLink, setFormUnlockRewardLink] = useState("");
 
   // Firestore Realtime Synchronization
   useEffect(() => {
@@ -140,6 +149,9 @@ export default function CharacterSection({ isAdmin, showToast, userHighestStreak
     ? characters
     : characters.filter((c) => c.tags.includes(activeFilter));
 
+  const userKeys = currentUser?.keys || EMPTY_KEYS;
+  const unlockedIds = currentUser?.unlockedCharacterIds || [];
+
   // Like interaction with realtime Firestore sync and bouncy pop
   const handleLike = async (character: Character, event: React.MouseEvent) => {
     event.stopPropagation();
@@ -161,8 +173,8 @@ export default function CharacterSection({ isAdmin, showToast, userHighestStreak
           statusReason: ext.statusReason || "",
           storyArcs: ext.storyArcs || [],
           gallery: ext.gallery || [],
-          requiredStreak: ext.requiredStreak || 0,
-          unlockLink: ext.unlockLink || "",
+          requiredKeyTier: ext.requiredKeyTier || null,
+          unlockRewardLink: ext.unlockRewardLink || "",
           createdAt: new Date().toISOString(),
         });
         showToast(`Đã thả tim cho ${character.name}! 💕`, "success");
@@ -179,7 +191,7 @@ export default function CharacterSection({ isAdmin, showToast, userHighestStreak
     }
   };
 
-  // Cloudinary Secure Media Upload
+  // Cloudinary Secure Media Upload (avatar)
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -210,24 +222,6 @@ export default function CharacterSection({ isAdmin, showToast, userHighestStreak
     } finally {
       setUploading(false);
     }
-  };
-
-  // Thêm một mạch truyện bổ sung (ngoại truyện) vào danh sách tạm của form
-  const handleAddStoryArc = () => {
-    if (!arcTitle.trim() || !arcContent.trim()) {
-      showToast("Vui lòng nhập đủ tên và nội dung mạch truyện!", "error");
-      return;
-    }
-
-    const newArc: StoryArc = {
-      id: `arc-${Date.now()}`,
-      title: arcTitle.trim(),
-      content: arcContent.trim(),
-    };
-
-    setFormStoryArcs((prev) => [...prev, newArc]);
-    setArcTitle("");
-    setArcContent("");
   };
 
   // Thêm ảnh vào Vibe Gallery (upload Cloudinary, giữ chú thích tuỳ chọn kèm theo)
@@ -274,6 +268,23 @@ export default function CharacterSection({ isAdmin, showToast, userHighestStreak
     setFormGallery((prev) => prev.filter((img) => img.id !== id));
   };
 
+  const handleAddStoryArc = () => {
+    if (!arcTitle.trim() || !arcContent.trim()) {
+      showToast("Vui lòng nhập đủ tên và nội dung mạch truyện!", "error");
+      return;
+    }
+
+    const newArc: StoryArc = {
+      id: `arc-${Date.now()}`,
+      title: arcTitle.trim(),
+      content: arcContent.trim(),
+    };
+
+    setFormStoryArcs((prev) => [...prev, newArc]);
+    setArcTitle("");
+    setArcContent("");
+  };
+
   const handleRemoveStoryArc = (id: string) => {
     setFormStoryArcs((prev) => prev.filter((a) => a.id !== id));
   };
@@ -292,9 +303,6 @@ export default function CharacterSection({ isAdmin, showToast, userHighestStreak
         .map((t) => t.trim())
         .filter((t) => t.length > 0);
 
-      // Mốc streak do chị tự nhập (0 hoặc để trống = không yêu cầu streak, ai cũng thấy link nếu có)
-      const parsedRequiredStreak = Math.max(0, parseInt(formRequiredStreak, 10) || 0);
-
       const characterData = {
         name: formName.trim(),
         role: formRole.trim(),
@@ -306,8 +314,8 @@ export default function CharacterSection({ isAdmin, showToast, userHighestStreak
         statusReason: formStatus === "locked" ? formStatusReason.trim() : "",
         storyArcs: formStoryArcs,
         gallery: formGallery,
-        requiredStreak: parsedRequiredStreak,
-        unlockLink: formUnlockLink.trim(),
+        requiredKeyTier: formRequiredKeyTier || null,
+        unlockRewardLink: formRequiredKeyTier ? formUnlockRewardLink.trim() : "",
         createdAt: new Date().toISOString(),
       };
 
@@ -332,8 +340,8 @@ export default function CharacterSection({ isAdmin, showToast, userHighestStreak
       setArcContent("");
       setFormGallery([]);
       setGalleryCaption("");
-      setFormRequiredStreak("");
-      setFormUnlockLink("");
+      setFormRequiredKeyTier("");
+      setFormUnlockRewardLink("");
       setEditingId(null);
       setShowForm(false);
     } catch (err) {
@@ -344,7 +352,6 @@ export default function CharacterSection({ isAdmin, showToast, userHighestStreak
 
   // Delete Character from Firestore
   const handleDeleteCharacter = async (id: string, name: string) => {
-    // Sửa thêm chữ window. để Vercel không báo lỗi undefined confirm
     if (window.confirm(`Bạn có chắc chắn muốn xóa nhân vật ${name}?`)) {
       try {
         await deleteDoc(doc(db, "characters", id));
@@ -372,32 +379,88 @@ export default function CharacterSection({ isAdmin, showToast, userHighestStreak
     setArcContent("");
     setFormGallery(ext.gallery || []);
     setGalleryCaption("");
-    setFormRequiredStreak(ext.requiredStreak ? String(ext.requiredStreak) : "");
-    setFormUnlockLink(ext.unlockLink || "");
+    setFormRequiredKeyTier(ext.requiredKeyTier || "");
+    setFormUnlockRewardLink(ext.unlockRewardLink || "");
     setShowForm(true);
   };
+
+  // Dùng 1 chìa khoá trong túi đồ để mở khoá vĩnh viễn 1 nhân vật
+  const handleUnlockWithKey = async (character: Character) => {
+    if (!currentUser) {
+      showToast("Vui lòng đăng nhập để dùng chìa khoá mở khoá nhân vật!", "info");
+      return;
+    }
+    const ext = character as CharacterExt;
+    const tier = ext.requiredKeyTier;
+    if (!tier) return;
+
+    const availableCount = userKeys[tier] || 0;
+    if (availableCount < 1) {
+      showToast(
+        `Bạn chưa có Khoá ${KEY_TIER_META[tier].label}. Hãy giữ chuỗi Manifest ${KEY_TIER_META[tier].threshold} ngày rồi đổi khoá nhé! 🔑`,
+        "error"
+      );
+      return;
+    }
+
+    setUnlockingId(character.id);
+    const updatedKeys: UserKeys = { ...userKeys, [tier]: availableCount - 1 };
+    const updatedUnlockedIds = [...unlockedIds, character.id];
+
+    try {
+      const userId = currentUser.username?.toLowerCase() || currentUser.uid || currentUser.id || "unknown_user";
+      const userRef = doc(db, "users", userId);
+      await setDoc(userRef, { keys: updatedKeys, unlockedCharacterIds: updatedUnlockedIds }, { merge: true });
+
+      const updatedUser: UserProfile = {
+        ...currentUser,
+        keys: updatedKeys,
+        unlockedCharacterIds: updatedUnlockedIds,
+      };
+      onUpdateUser(updatedUser);
+      showToast(`Đã dùng Khoá ${KEY_TIER_META[tier].emoji} ${KEY_TIER_META[tier].label} mở khoá ${character.name}! 🎉`, "success");
+    } catch (err) {
+      console.error(err);
+      showToast("Mở khoá thất bại, thử lại nhé!", "error");
+    } finally {
+      setUnlockingId(null);
+    }
+  };
+
+  const unlockedCharacterNames = characters
+    .filter((c) => unlockedIds.includes(c.id))
+    .map((c) => c.name);
 
   return (
     <div className="w-full max-w-6xl mx-auto px-4 py-8 z-10 flex flex-col gap-6 relative">
 
-      {/* Header with Admin Creation Trigger */}
-      <div className="flex justify-between items-center">
+      {/* Header with Admin Creation Trigger + Túi Đồ */}
+      <div className="flex justify-between items-center flex-wrap gap-2">
         <h2 className="text-2xl font-display text-white text-glow-pearl flex items-center gap-2">
           <Sparkles className="w-5 h-5 text-pink-400 animate-spin-slow" />
           Nhân Vật Nhiệm Màu
         </h2>
-        {isAdmin && (
+        <div className="flex items-center gap-2">
           <button
-            onClick={() => {
-              setShowForm(!showForm);
-              if (showForm) setEditingId(null);
-            }}
-            className="px-4 py-2 bg-gradient-to-r from-pink-400 to-purple-400 hover:from-pink-500 hover:to-purple-500 text-white rounded-full text-xs font-bold shadow-md hover:scale-105 transition-all flex items-center gap-1.5"
+            onClick={() => setShowInventory(true)}
+            className="px-4 py-2 bg-white/40 hover:bg-white/60 text-slate-700 rounded-full text-xs font-bold shadow-sm hover:scale-105 transition-all flex items-center gap-1.5 border border-white/50"
           >
-            {showForm ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
-            {showForm ? "Đóng Form" : "Gieo mầm nhân vật"}
+            <Backpack className="w-3.5 h-3.5 text-purple-500" />
+            Túi Đồ
           </button>
-        )}
+          {isAdmin && (
+            <button
+              onClick={() => {
+                setShowForm(!showForm);
+                if (showForm) setEditingId(null);
+              }}
+              className="px-4 py-2 bg-gradient-to-r from-pink-400 to-purple-400 hover:from-pink-500 hover:to-purple-500 text-white rounded-full text-xs font-bold shadow-md hover:scale-105 transition-all flex items-center gap-1.5"
+            >
+              {showForm ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+              {showForm ? "Đóng Form" : "Gieo mầm nhân vật"}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Admin Character Creator Form */}
@@ -513,32 +576,34 @@ export default function CharacterSection({ isAdmin, showToast, userHighestStreak
                 )}
               </div>
 
-              {/* ---- (4) Mốc mở khóa theo Streak Manifest - chị tự đặt riêng cho từng nhân vật ---- */}
+              {/* ---- (4) Yêu cầu Chìa Khoá để mở khoá (key economy) ---- */}
               <div className="col-span-1 md:col-span-2 flex flex-col gap-2 pt-3 border-t border-pink-100">
                 <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
-                  <Flame className="w-3.5 h-3.5 text-orange-400" />
-                  Mốc Mở Khóa Theo Streak Manifest
+                  <Lock className="w-3.5 h-3.5 text-purple-400" />
+                  Yêu Cầu Chìa Khoá Để Mở (tuỳ chọn)
                 </label>
-                <p className="text-[10px] text-slate-500 -mt-1">
-                  Để trống hoặc 0 = ai cũng xem được link (không yêu cầu streak). Chị tự đặt số ngày riêng cho từng nhân vật.
-                </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  <input
-                    type="number"
-                    min={0}
-                    placeholder="Số ngày streak cần đạt (ví dụ: 7)"
-                    value={formRequiredStreak}
-                    onChange={(e) => setFormRequiredStreak(e.target.value)}
-                    className="bg-white/50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white"
-                  />
+                <select
+                  value={formRequiredKeyTier}
+                  onChange={(e) => setFormRequiredKeyTier(e.target.value as KeyTier | "")}
+                  className="bg-white/50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white"
+                >
+                  <option value="">Không yêu cầu (dùng Trạng Thái phía trên)</option>
+                  {KEY_TIER_ORDER.map((tier) => (
+                    <option key={tier} value={tier}>
+                      {KEY_TIER_META[tier].emoji} Khoá {KEY_TIER_META[tier].label} ({KEY_TIER_META[tier].threshold} ngày streak)
+                    </option>
+                  ))}
+                </select>
+
+                {formRequiredKeyTier && (
                   <input
                     type="text"
-                    placeholder="Link mở khóa (Discord, Drive, ...)"
-                    value={formUnlockLink}
-                    onChange={(e) => setFormUnlockLink(e.target.value)}
+                    placeholder="Link phần thưởng (Discord/Drive/...) khi user dùng khoá mở khoá"
+                    value={formUnlockRewardLink}
+                    onChange={(e) => setFormUnlockRewardLink(e.target.value)}
                     className="bg-white/50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white"
                   />
-                </div>
+                )}
               </div>
 
               {/* ---- (2) Mạch truyện bổ sung (ngoại truyện) - phần riêng biệt ---- */}
@@ -723,132 +788,130 @@ export default function CharacterSection({ isAdmin, showToast, userHighestStreak
         <AnimatePresence>
           {filteredCharacters.map((char) => {
             const ext = char as CharacterExt;
-            const hasStreakGate = !!ext.requiredStreak && ext.requiredStreak > 0;
-            const isStreakUnlocked = !hasStreakGate || userHighestStreak >= (ext.requiredStreak || 0);
+            const hasKeyGate = !!ext.requiredKeyTier;
+            const isKeyUnlocked = hasKeyGate && unlockedIds.includes(char.id);
 
             return (
-            <motion.div
-              key={char.id}
-              layout
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              transition={{ duration: 0.4 }}
-              className="relative p-6 rounded-[32px] glass-panel hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 flex flex-col items-center text-center group"
-            >
+              <motion.div
+                key={char.id}
+                layout
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                transition={{ duration: 0.4 }}
+                className="relative p-6 rounded-[32px] glass-panel hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 flex flex-col items-center text-center group"
+              >
 
-              {/* Admin actions (Edit/Delete icons) - Đã sửa để luôn hiện trên iPad, dùng dấu X */}
-              {isAdmin && (
-                <div className="absolute top-4 right-4 flex gap-1.5 z-10">
-                  <button
-                    onClick={() => handleStartEdit(char)}
-                    className="p-1.5 rounded-full bg-white/60 hover:bg-white text-purple-600 transition-colors shadow-sm"
-                    title="Chỉnh sửa"
-                  >
-                    <Edit2 className="w-3 h-3" />
-                  </button>
-                  <button
-                    onClick={() => handleDeleteCharacter(char.id, char.name)}
-                    className="p-1.5 rounded-full bg-white/60 hover:bg-rose-50 text-rose-600 transition-colors shadow-sm"
-                    title="Xóa"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
-              )}
-
-              {/* Avatar with Wavy Gradient liquid border rotating continually */}
-              <div className="relative w-32 h-32 mb-4 select-none">
-                {/* Spinning liquid gradient borders */}
-                <div className="absolute -inset-1.5 rounded-full bg-gradient-to-tr from-green-300 via-pink-300 to-purple-300 blur-sm animate-wave-rotate opacity-75" />
-                <div className="absolute -inset-1 rounded-full liquid-border opacity-90" />
-
-                {/* Standard Avatar Image */}
-                <div className="relative w-full h-full rounded-full overflow-hidden border-2 border-white bg-slate-100 z-10 shadow-inner">
-                  <img
-                    src={char.avatar}
-                    alt={char.name}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                    referrerPolicy="no-referrer"
-                  />
-                </div>
-              </div>
-
-              {/* Name & Role */}
-              <h3 className="text-lg font-bold text-slate-800 font-display group-hover:text-pink-600 transition-colors">
-                {char.name}
-              </h3>
-              <p className="text-[11px] text-slate-600 font-medium px-4 mt-1 mb-2 h-8 overflow-hidden line-clamp-2">
-                {char.role}
-              </p>
-
-              {/* Status Badge - hiện ngay trên card, không cần bấm Chi tiết */}
-              {ext.status && (() => {
-                const meta = CHARACTER_STATUS_META[ext.status!];
-                const Icon = meta.icon;
-                return (
-                  <div
-                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-[9px] font-bold mb-2 max-w-full ${meta.badge}`}
-                  >
-                    <Icon className="w-3 h-3 flex-shrink-0" />
-                    <span className="truncate">{meta.shortLabel}</span>
+                {/* Admin actions (Edit/Delete icons) */}
+                {isAdmin && (
+                  <div className="absolute top-4 right-4 flex gap-1.5 z-10">
+                    <button
+                      onClick={() => handleStartEdit(char)}
+                      className="p-1.5 rounded-full bg-white/60 hover:bg-white text-purple-600 transition-colors shadow-sm"
+                      title="Chỉnh sửa"
+                    >
+                      <Edit2 className="w-3 h-3" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteCharacter(char.id, char.name)}
+                      className="p-1.5 rounded-full bg-white/60 hover:bg-rose-50 text-rose-600 transition-colors shadow-sm"
+                      title="Xóa"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
                   </div>
-                );
-              })()}
+                )}
 
-              {/* Streak Gate Badge - chỉ hiện nếu nhân vật này có đặt mốc streak */}
-              {hasStreakGate && (
-                <div
-                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-[9px] font-bold mb-3 max-w-full ${
-                    isStreakUnlocked
-                      ? "text-orange-600 bg-orange-50 border-orange-200"
-                      : "text-slate-500 bg-slate-100 border-slate-200"
-                  }`}
-                >
-                  <Flame className="w-3 h-3 flex-shrink-0" />
-                  <span className="truncate">
-                    {isStreakUnlocked ? "Đã mở khoá link" : `Cần streak ${ext.requiredStreak} ngày`}
-                  </span>
+                {/* Avatar with Wavy Gradient liquid border rotating continually */}
+                <div className="relative w-32 h-32 mb-4 select-none">
+                  <div className="absolute -inset-1.5 rounded-full bg-gradient-to-tr from-green-300 via-pink-300 to-purple-300 blur-sm animate-wave-rotate opacity-75" />
+                  <div className="absolute -inset-1 rounded-full liquid-border opacity-90" />
+                  <div className="relative w-full h-full rounded-full overflow-hidden border-2 border-white bg-slate-100 z-10 shadow-inner">
+                    <img
+                      src={char.avatar}
+                      alt={char.name}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
                 </div>
-              )}
 
-              {/* Tag Capsules */}
-              <div className="flex flex-wrap gap-1 justify-center mb-4">
-                {char.tags.map((t) => (
-                  <span
-                    key={t}
-                    className="text-[9px] bg-white/40 text-slate-600 font-bold px-2 py-0.5 rounded-full border border-white/40"
+                {/* Name & Role */}
+                <h3 className="text-lg font-bold text-slate-800 font-display group-hover:text-pink-600 transition-colors">
+                  {char.name}
+                </h3>
+                <p className="text-[11px] text-slate-600 font-medium px-4 mt-1 mb-2 h-8 overflow-hidden line-clamp-2">
+                  {char.role}
+                </p>
+
+                {/* Badge: Nếu có Key Gate thì ưu tiên hiện badge khoá, ngược lại hiện Trạng Thái thủ công */}
+                {hasKeyGate ? (
+                  <div
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-[9px] font-bold mb-3 max-w-full ${
+                      isKeyUnlocked
+                        ? "text-emerald-600 bg-emerald-50 border-emerald-200"
+                        : KEY_TIER_META[ext.requiredKeyTier!].badge
+                    }`}
                   >
-                    #{t}
-                  </span>
-                ))}
-              </div>
+                    {isKeyUnlocked ? <Unlock className="w-3 h-3 flex-shrink-0" /> : <Lock className="w-3 h-3 flex-shrink-0" />}
+                    <span className="truncate">
+                      {isKeyUnlocked
+                        ? "Đã mở khoá"
+                        : `${KEY_TIER_META[ext.requiredKeyTier!].emoji} Cần Khoá ${KEY_TIER_META[ext.requiredKeyTier!].label}`}
+                    </span>
+                  </div>
+                ) : (
+                  ext.status && (() => {
+                    const meta = CHARACTER_STATUS_META[ext.status!];
+                    const Icon = meta.icon;
+                    return (
+                      <div
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-[9px] font-bold mb-3 max-w-full ${meta.badge}`}
+                      >
+                        <Icon className="w-3 h-3 flex-shrink-0" />
+                        <span className="truncate">{meta.shortLabel}</span>
+                      </div>
+                    );
+                  })()
+                )}
 
-              {/* Footer Controls with Interactive Bouncy heart liking */}
-              <div className="flex w-full justify-between items-center mt-auto pt-3 border-t border-white/20">
-                <button
-                  onClick={() => setSelectedCharacter(char)}
-                  className="text-[10px] font-bold px-4 py-2 bg-white/30 hover:bg-white/60 rounded-full uppercase tracking-wider text-slate-700 transition-colors flex items-center gap-1 border border-white/50"
-                >
-                  <Eye className="w-3 h-3 text-pink-400" />
-                  Chi tiết
-                </button>
-
-                <div className="flex items-center gap-1.5">
-                  <motion.button
-                    onClick={(e) => handleLike(char, e)}
-                    className="text-pink-500 hover:text-pink-600 hover:scale-125 transition-transform"
-                    whileTap={{ scale: 1.5, rotate: [0, -15, 15, 0] }}
-                  >
-                    <Heart className="w-4 h-4 fill-pink-500 hover:fill-pink-600 filter drop-shadow-sm" />
-                  </motion.button>
-                  <span className="text-xs font-bold text-pink-600">
-                    {char.likes >= 1000 ? `${(char.likes / 1000).toFixed(1)}k` : char.likes}
-                  </span>
+                {/* Tag Capsules */}
+                <div className="flex flex-wrap gap-1 justify-center mb-4">
+                  {char.tags.map((t) => (
+                    <span
+                      key={t}
+                      className="text-[9px] bg-white/40 text-slate-600 font-bold px-2 py-0.5 rounded-full border border-white/40"
+                    >
+                      #{t}
+                    </span>
+                  ))}
                 </div>
-              </div>
 
-            </motion.div>
+                {/* Footer Controls with Interactive Bouncy heart liking */}
+                <div className="flex w-full justify-between items-center mt-auto pt-3 border-t border-white/20">
+                  <button
+                    onClick={() => setSelectedCharacter(char)}
+                    className="text-[10px] font-bold px-4 py-2 bg-white/30 hover:bg-white/60 rounded-full uppercase tracking-wider text-slate-700 transition-colors flex items-center gap-1 border border-white/50"
+                  >
+                    <Eye className="w-3 h-3 text-pink-400" />
+                    Chi tiết
+                  </button>
+
+                  <div className="flex items-center gap-1.5">
+                    <motion.button
+                      onClick={(e) => handleLike(char, e)}
+                      className="text-pink-500 hover:text-pink-600 hover:scale-125 transition-transform"
+                      whileTap={{ scale: 1.5, rotate: [0, -15, 15, 0] }}
+                    >
+                      <Heart className="w-4 h-4 fill-pink-500 hover:fill-pink-600 filter drop-shadow-sm" />
+                    </motion.button>
+                    <span className="text-xs font-bold text-pink-600">
+                      {char.likes >= 1000 ? `${(char.likes / 1000).toFixed(1)}k` : char.likes}
+                    </span>
+                  </div>
+                </div>
+
+              </motion.div>
             );
           })}
         </AnimatePresence>
@@ -879,24 +942,82 @@ export default function CharacterSection({ isAdmin, showToast, userHighestStreak
                 <X className="w-4 h-4" />
               </button>
 
-              {/* (1) Badge trạng thái tiến độ - hiển thị ngay trên đầu profile */}
-              {(selectedCharacter as CharacterExt).status && (() => {
-                const meta = CHARACTER_STATUS_META[(selectedCharacter as CharacterExt).status!];
-                const Icon = meta.icon;
-                return (
-                  <div
-                    className={`self-center md:self-start inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[10px] font-bold mb-4 ${meta.badge}`}
-                  >
-                    <Icon className="w-3 h-3" />
-                    <span>{meta.label}</span>
-                    {(selectedCharacter as CharacterExt).status === "locked" &&
-                      (selectedCharacter as CharacterExt).statusReason && (
-                        <span className="font-normal italic opacity-80">
-                          · {(selectedCharacter as CharacterExt).statusReason}
-                        </span>
+              {(() => {
+                const ext = selectedCharacter as CharacterExt;
+                const hasKeyGate = !!ext.requiredKeyTier;
+
+                // --- Ưu tiên hiện khối Key Gate nếu nhân vật này yêu cầu khoá ---
+                if (hasKeyGate) {
+                  const tier = ext.requiredKeyTier!;
+                  const meta = KEY_TIER_META[tier];
+                  const isUnlocked = unlockedIds.includes(selectedCharacter.id);
+                  const availableCount = userKeys[tier] || 0;
+
+                  return (
+                    <div className={`rounded-2xl border p-4 mb-4 ${isUnlocked ? "border-emerald-200 bg-emerald-50/60" : meta.badge}`}>
+                      {isUnlocked ? (
+                        <div className="flex flex-col gap-2 items-center text-center">
+                          <span className="text-xs font-bold text-emerald-700">
+                            🎉 Đã mở khoá bằng {meta.emoji} Khoá {meta.label}
+                          </span>
+                          {ext.unlockRewardLink && (
+                            <a
+                              href={ext.unlockRewardLink}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-full text-xs font-bold flex items-center gap-1.5 transition-colors"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5" />
+                              Nhận Link Ngay
+                            </a>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-2 items-center text-center">
+                          <span className="text-xs font-bold">
+                            {meta.emoji} Cần Khoá {meta.label} để mở khoá nhân vật này
+                          </span>
+                          <span className="text-[10px] opacity-80">
+                            Bạn đang có: {availableCount} Khoá {meta.label}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleUnlockWithKey(selectedCharacter)}
+                            disabled={availableCount < 1 || unlockingId === selectedCharacter.id}
+                            className="px-4 py-2 bg-purple-500 hover:bg-purple-600 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-full text-xs font-bold flex items-center gap-1.5 transition-colors"
+                          >
+                            <Unlock className="w-3.5 h-3.5" />
+                            {unlockingId === selectedCharacter.id ? "Đang mở..." : "Dùng Khoá Mở Khoá"}
+                          </button>
+                          {availableCount < 1 && (
+                            <span className="text-[10px] opacity-70 italic">
+                              Giữ chuỗi Manifest {meta.threshold} ngày rồi đổi khoá ở trang Manifest nhé!
+                            </span>
+                          )}
+                        </div>
                       )}
-                  </div>
-                );
+                    </div>
+                  );
+                }
+
+                // --- Nếu không có key gate, hiện Trạng Thái tiến độ thủ công như cũ ---
+                if (ext.status) {
+                  const meta = CHARACTER_STATUS_META[ext.status];
+                  const Icon = meta.icon;
+                  return (
+                    <div
+                      className={`self-center md:self-start inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[10px] font-bold mb-4 ${meta.badge}`}
+                    >
+                      <Icon className="w-3 h-3" />
+                      <span>{meta.label}</span>
+                      {ext.status === "locked" && ext.statusReason && (
+                        <span className="font-normal italic opacity-80">· {ext.statusReason}</span>
+                      )}
+                    </div>
+                  );
+                }
+
+                return null;
               })()}
 
               <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
@@ -945,54 +1066,15 @@ export default function CharacterSection({ isAdmin, showToast, userHighestStreak
                 </div>
               </div>
 
-              {/* (4) Mở khóa theo Streak Manifest - chỉ hiện nếu nhân vật này có đặt mốc */}
-              {(() => {
-                const ext = selectedCharacter as CharacterExt;
-                const requiredStreak = ext.requiredStreak || 0;
-                if (requiredStreak <= 0) return null;
-
-                const isUnlocked = userHighestStreak >= requiredStreak;
-                const progressPct = Math.min(100, Math.round((userHighestStreak / requiredStreak) * 100));
-
-                return (
-                  <div className="mt-6 pt-5 border-t border-pink-100">
-                    <h4 className="text-xs uppercase tracking-widest font-bold text-slate-500 mb-3 flex items-center gap-1.5">
-                      <Flame className="w-3.5 h-3.5 text-orange-400" />
-                      Mở Khóa Theo Streak Manifest
-                    </h4>
-
-                    {isUnlocked ? (
-                      ext.unlockLink ? (
-                        <a
-                          href={ext.unlockLink}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-orange-400 to-pink-400 hover:from-orange-500 hover:to-pink-500 text-white rounded-xl text-xs font-bold shadow-md transition-all hover:scale-105"
-                        >
-                          <ExternalLink className="w-3.5 h-3.5" />
-                          Nhận link nhân vật ({requiredStreak} ngày)
-                        </a>
-                      ) : (
-                        <p className="text-xs font-semibold text-emerald-600">
-                          Bạn đã đủ điều kiện, nhưng chưa có link được thiết lập.
-                        </p>
-                      )
-                    ) : (
-                      <div className="flex flex-col gap-2">
-                        <p className="text-xs font-semibold text-slate-600">
-                          Cần đạt streak {requiredStreak} ngày. Hiện tại: {userHighestStreak} ngày (còn {Math.max(0, requiredStreak - userHighestStreak)} ngày nữa).
-                        </p>
-                        <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
-                          <div
-                            className="h-full bg-gradient-to-r from-orange-400 to-pink-400 rounded-full transition-all"
-                            style={{ width: `${progressPct}%` }}
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
+              {/* Detailed Plot (Cốt truyện phiêu lưu) */}
+              <div className="mt-6 pt-5 border-t border-pink-100 text-slate-700">
+                <h4 className="text-xs uppercase tracking-widest font-bold text-slate-500 mb-2">
+                  Tiểu Sử Phiêu Lưu
+                </h4>
+                <div className="text-sm leading-loose whitespace-pre-line text-slate-700/90 font-medium">
+                  {selectedCharacter.plot}
+                </div>
+              </div>
 
               {/* (3) Vibe Board - lưới ảnh phong cách Instagram */}
               {(selectedCharacter as CharacterExt).gallery &&
@@ -1004,10 +1086,8 @@ export default function CharacterSection({ isAdmin, showToast, userHighestStreak
                     </h4>
                     <div className="grid grid-cols-3 gap-1.5">
                       {(selectedCharacter as CharacterExt).gallery!.map((img) => (
-                        <button
+                        <div
                           key={img.id}
-                          type="button"
-                          onClick={() => setSelectedGalleryImage(img)}
                           className="relative aspect-square rounded-lg overflow-hidden group"
                         >
                           <img
@@ -1016,24 +1096,11 @@ export default function CharacterSection({ isAdmin, showToast, userHighestStreak
                             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                             referrerPolicy="no-referrer"
                           />
-                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
-                            <Maximize2 className="w-4 h-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                          </div>
-                        </button>
+                        </div>
                       ))}
                     </div>
                   </div>
                 )}
-
-              {/* Detailed Plot (Cốt truyện phiêu lưu) */}
-              <div className="mt-6 pt-5 border-t border-pink-100 text-slate-700">
-                <h4 className="text-xs uppercase tracking-widest font-bold text-slate-500 mb-2">
-                  Tiểu Sử Phiêu Lưu
-                </h4>
-                <div className="text-sm leading-loose whitespace-pre-line text-slate-700/90 font-medium">
-                  {selectedCharacter.plot}
-                </div>
-              </div>
 
               {/* (2) Mạch Truyện Bổ Sung (Ngoại truyện) - ngay dưới Tiểu Sử, không có trạng thái riêng */}
               {(selectedCharacter as CharacterExt).storyArcs &&
@@ -1063,41 +1130,73 @@ export default function CharacterSection({ isAdmin, showToast, userHighestStreak
         )}
       </AnimatePresence>
 
-      {/* Vibe Gallery Lightbox */}
+      {/* Túi Đồ Modal */}
       <AnimatePresence>
-        {selectedGalleryImage && (
+        {showInventory && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md"
-            onClick={() => setSelectedGalleryImage(null)}
+            className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-900/30 backdrop-blur-md"
+            onClick={() => setShowInventory(false)}
           >
             <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="relative max-w-lg w-full"
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="bg-white/80 backdrop-blur-xl border border-white/60 p-6 rounded-[32px] shadow-2xl max-w-md w-full text-slate-800 relative max-h-[85vh] overflow-y-auto custom-scroll"
               onClick={(e) => e.stopPropagation()}
             >
               <button
-                onClick={() => setSelectedGalleryImage(null)}
-                className="absolute -top-10 right-0 p-2 rounded-full bg-white/20 hover:bg-white/30 text-white transition-colors"
+                onClick={() => setShowInventory(false)}
+                className="absolute top-4 right-4 p-2 rounded-full bg-white/50 hover:bg-white text-slate-700 transition-all hover:scale-110 shadow-sm"
               >
                 <X className="w-4 h-4" />
               </button>
-              <div className="rounded-2xl overflow-hidden shadow-2xl">
-                <img
-                  src={selectedGalleryImage.url}
-                  alt={selectedGalleryImage.caption || "vibe"}
-                  className="w-full h-auto object-cover"
-                  referrerPolicy="no-referrer"
-                />
-              </div>
-              {selectedGalleryImage.caption && (
-                <p className="text-center text-white/90 text-xs font-medium mt-3 italic">
-                  {selectedGalleryImage.caption}
-                </p>
+
+              <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 mb-1">
+                <Backpack className="w-5 h-5 text-purple-500" />
+                Túi Đồ Của Bạn
+              </h3>
+
+              {!currentUser ? (
+                <p className="text-xs text-slate-500 mt-4">Vui lòng đăng nhập để xem túi đồ và tích luỹ chìa khoá nhé!</p>
+              ) : (
+                <>
+                  <p className="text-[10px] text-slate-500 mb-4">
+                    Đổi thêm chìa khoá tại trang Manifest bằng cách giữ chuỗi manifest.
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    {KEY_TIER_ORDER.map((tier) => {
+                      const meta = KEY_TIER_META[tier];
+                      const count = userKeys[tier] || 0;
+                      return (
+                        <div
+                          key={tier}
+                          className={`rounded-2xl border p-3 flex flex-col items-center gap-1 ${meta.badge}`}
+                        >
+                          <span className="text-2xl">{meta.emoji}</span>
+                          <span className="text-[11px] font-bold">Khoá {meta.label}</span>
+                          <span className="text-lg font-bold">x{count}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {unlockedCharacterNames.length > 0 && (
+                    <div className="mt-5 pt-4 border-t border-slate-200">
+                      <h4 className="text-xs font-bold text-slate-600 mb-2">Nhân vật đã mở khoá bằng chìa khoá</h4>
+                      <ul className="flex flex-col gap-1">
+                        {unlockedCharacterNames.map((name) => (
+                          <li key={name} className="text-xs text-slate-600 flex items-center gap-1.5">
+                            <Unlock className="w-3 h-3 text-emerald-500" />
+                            {name}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </>
               )}
             </motion.div>
           </motion.div>
