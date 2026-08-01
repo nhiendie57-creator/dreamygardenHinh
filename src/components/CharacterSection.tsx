@@ -427,6 +427,26 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
     }
   };
 
+  // [CHỈ ADMIN] Cấp thẳng 1 khoá để test, không cần cày streak thật
+  const handleAdminGrantKey = async (tier: KeyTier) => {
+    if (!currentUser || !isAdmin) return;
+
+    const updatedKeys: UserKeys = { ...userKeys, [tier]: (userKeys[tier] || 0) + 1 };
+
+    try {
+      const userId = currentUser.username?.toLowerCase() || currentUser.uid || currentUser.id || "unknown_user";
+      const userRef = doc(db, "users", userId);
+      await setDoc(userRef, { keys: updatedKeys }, { merge: true });
+
+      const updatedUser: UserProfile = { ...currentUser, keys: updatedKeys };
+      onUpdateUser(updatedUser);
+      showToast(`[Test] Đã cấp 1 Khoá ${KEY_TIER_META[tier].emoji} ${KEY_TIER_META[tier].label} vào túi đồ!`, "success");
+    } catch (err) {
+      console.error(err);
+      showToast("Cấp khoá test thất bại!", "error");
+    }
+  };
+
   const unlockedCharacterNames = characters
     .filter((c) => unlockedIds.includes(c.id))
     .map((c) => c.name);
