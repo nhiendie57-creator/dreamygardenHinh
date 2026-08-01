@@ -14,6 +14,12 @@ export interface StoryArc {
   content: string;
 }
 
+export interface GalleryImage {
+  id: string;
+  url: string;
+  caption?: string;
+}
+
 export interface Character {
   id: string;
   name: string;
@@ -25,6 +31,7 @@ export interface Character {
   status?: "in-progress" | "unlocked" | "locked"; // Trạng thái tiến độ nhân vật
   statusReason?: string; // Lý do khi status = "locked"
   storyArcs?: StoryArc[]; // Mạch truyện bổ sung (ngoại truyện)
+  gallery?: GalleryImage[]; // Vibe Gallery - bộ ảnh phong cách nhân vật
   createdAt?: any;
 }
 
