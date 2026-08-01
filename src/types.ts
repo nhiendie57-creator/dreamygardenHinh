@@ -8,6 +8,12 @@ export interface UserProfile {
   createdAt?: any;
 }
 
+export interface StoryArc {
+  id: string;
+  title: string;
+  content: string;
+}
+
 export interface Character {
   id: string;
   name: string;
@@ -16,6 +22,9 @@ export interface Character {
   plot: string;
   tags: string[];
   likes: number;
+  status?: "in-progress" | "unlocked" | "locked"; // Trạng thái tiến độ nhân vật
+  statusReason?: string; // Lý do khi status = "locked"
+  storyArcs?: StoryArc[]; // Mạch truyện bổ sung (ngoại truyện)
   createdAt?: any;
 }
 
