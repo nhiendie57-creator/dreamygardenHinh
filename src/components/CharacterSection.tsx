@@ -4,7 +4,7 @@ import { db } from "../config/firebase";
 import { Character } from "../types";
 // Đã sửa lại tên thư viện chuẩn để Vercel không báo lỗi
 import { motion, AnimatePresence } from "motion/react";
-import { Heart, Plus, Trash2, Edit2, X, Eye, Sparkles, Upload, Loader2, Save, Lock, Unlock, Clock, BookOpen } from "lucide-react";
+import { Heart, Plus, Trash2, Edit2, X, Eye, Sparkles, Upload, Loader2, Save, Lock, Unlock, Clock, BookOpen, Images, Maximize2 } from "lucide-react";
 
 interface CharacterSectionProps {
   isAdmin: boolean;
@@ -45,16 +45,25 @@ interface StoryArc {
   content: string;
 }
 
-// NOTE: Nếu file "../types" chưa có 2 field này, hãy bổ sung vào interface Character:
+// --- (3) Vibe Gallery — bộ ảnh phong cách Instagram để thể hiện "vibe" của nhân vật ---
+interface GalleryImage {
+  id: string;
+  url: string;
+  caption?: string;
+}
+
+// NOTE: Nếu file "../types" chưa có các field này, hãy bổ sung vào interface Character:
 //   status?: "in-progress" | "unlocked" | "locked";
 //   statusReason?: string;
 //   storyArcs?: { id: string; title: string; content: string }[];
+//   gallery?: { id: string; url: string; caption?: string }[];
 // Trong lúc chờ cập nhật types.ts, component dùng type mở rộng CharacterExt bên dưới
 // để không phá vỡ build hiện tại.
 type CharacterExt = Character & {
   status?: CharacterStatus;
   statusReason?: string;
   storyArcs?: StoryArc[];
+  gallery?: GalleryImage[];
 };
 
 // Đã làm trống danh sách mặc định để vườn chỉ hiện nhân vật do admin tạo
@@ -64,6 +73,7 @@ export default function CharacterSection({ isAdmin, showToast }: CharacterSectio
   const [characters, setCharacters] = useState<Character[]>([]);
   const [activeFilter, setActiveFilter] = useState("All");
   const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
+  const [selectedGalleryImage, setSelectedGalleryImage] = useState<GalleryImage | null>(null);
 
   // Create / Edit Form State
   const [showForm, setShowForm] = useState(false);
@@ -83,6 +93,11 @@ export default function CharacterSection({ isAdmin, showToast }: CharacterSectio
   const [formStoryArcs, setFormStoryArcs] = useState<StoryArc[]>([]);
   const [arcTitle, setArcTitle] = useState("");
   const [arcContent, setArcContent] = useState("");
+
+  // (3) Vibe Gallery - bộ ảnh phong cách Instagram
+  const [formGallery, setFormGallery] = useState<GalleryImage[]>([]);
+  const [galleryCaption, setGalleryCaption] = useState("");
+  const [galleryUploading, setGalleryUploading] = useState(false);
 
   // Firestore Realtime Synchronization
   useEffect(() => {
@@ -134,6 +149,7 @@ export default function CharacterSection({ isAdmin, showToast }: CharacterSectio
           status: ext.status || "in-progress",
           statusReason: ext.statusReason || "",
           storyArcs: ext.storyArcs || [],
+          gallery: ext.gallery || [],
           createdAt: new Date().toISOString(),
         });
         showToast(`Đã thả tim cho ${character.name}! 💕`, "success");
@@ -201,6 +217,50 @@ export default function CharacterSection({ isAdmin, showToast }: CharacterSectio
     setArcContent("");
   };
 
+  // Thêm ảnh vào Vibe Gallery (upload Cloudinary, giữ chú thích tuỳ chọn kèm theo)
+  const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setGalleryUploading(true);
+    showToast("Đang thêm ảnh vào vibe board... ☁", "info");
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("upload_preset", "dreamy_garden_preset");
+
+      const response = await fetch("https://api.cloudinary.com/v1_1/i7upt5gk/auto/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Cloudinary upload failed");
+      }
+
+      const data = await response.json();
+      const newImage: GalleryImage = {
+        id: `gallery-${Date.now()}`,
+        url: data.secure_url,
+        ...(galleryCaption.trim() ? { caption: galleryCaption.trim() } : {}),
+      };
+      setFormGallery((prev) => [...prev, newImage]);
+      setGalleryCaption("");
+      showToast("Đã thêm ảnh vào vibe board! ✨", "success");
+    } catch (err) {
+      console.error(err);
+      showToast("Tải ảnh lên thất bại. Vui lòng kiểm tra upload_preset!", "error");
+    } finally {
+      setGalleryUploading(false);
+      e.target.value = "";
+    }
+  };
+
+  const handleRemoveGalleryImage = (id: string) => {
+    setFormGallery((prev) => prev.filter((img) => img.id !== id));
+  };
+
   const handleRemoveStoryArc = (id: string) => {
     setFormStoryArcs((prev) => prev.filter((a) => a.id !== id));
   };
@@ -229,6 +289,7 @@ export default function CharacterSection({ isAdmin, showToast }: CharacterSectio
         status: formStatus,
         statusReason: formStatus === "locked" ? formStatusReason.trim() : "",
         storyArcs: formStoryArcs,
+        gallery: formGallery,
         createdAt: new Date().toISOString(),
       };
 
@@ -251,6 +312,8 @@ export default function CharacterSection({ isAdmin, showToast }: CharacterSectio
       setFormStoryArcs([]);
       setArcTitle("");
       setArcContent("");
+      setFormGallery([]);
+      setGalleryCaption("");
       setEditingId(null);
       setShowForm(false);
     } catch (err) {
@@ -287,6 +350,8 @@ export default function CharacterSection({ isAdmin, showToast }: CharacterSectio
     setFormStoryArcs(ext.storyArcs || []);
     setArcTitle("");
     setArcContent("");
+    setFormGallery(ext.gallery || []);
+    setGalleryCaption("");
     setShowForm(true);
   };
 
@@ -297,7 +362,7 @@ export default function CharacterSection({ isAdmin, showToast }: CharacterSectio
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-display text-white text-glow-pearl flex items-center gap-2">
           <Sparkles className="w-5 h-5 text-pink-400 animate-spin-slow" />
-          Bản thảo đang chờ bạn
+          Nhân Vật Nhiệm Màu
         </h2>
         {isAdmin && (
           <button
@@ -481,6 +546,67 @@ export default function CharacterSection({ isAdmin, showToast }: CharacterSectio
                 )}
               </div>
 
+              {/* ---- (3) Vibe Gallery - bộ ảnh phong cách Instagram ---- */}
+              <div className="col-span-1 md:col-span-2 flex flex-col gap-2 pt-3 border-t border-pink-100">
+                <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+                  <Images className="w-3.5 h-3.5 text-purple-400" />
+                  Vibe Gallery (Bộ Ảnh Phong Cách)
+                </label>
+
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Chú thích cho ảnh (tuỳ chọn)"
+                    value={galleryCaption}
+                    onChange={(e) => setGalleryCaption(e.target.value)}
+                    className="bg-white/50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white flex-1"
+                  />
+                  <label className="bg-pink-100 hover:bg-pink-200 text-pink-700 px-3 py-2 rounded-xl text-xs font-bold cursor-pointer transition-colors flex items-center justify-center gap-1 whitespace-nowrap">
+                    <Upload className="w-3.5 h-3.5" />
+                    Thêm ảnh
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleGalleryUpload}
+                      className="hidden"
+                      disabled={galleryUploading}
+                    />
+                  </label>
+                </div>
+
+                {galleryUploading && (
+                  <div className="flex items-center gap-2 text-pink-600 text-xs font-bold animate-pulse">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Đang tải ảnh lên... ☁
+                  </div>
+                )}
+
+                {formGallery.length > 0 && (
+                  <div className="grid grid-cols-4 gap-2 mt-1">
+                    {formGallery.map((img) => (
+                      <div
+                        key={img.id}
+                        className="relative aspect-square rounded-lg overflow-hidden border border-pink-200 group"
+                      >
+                        <img
+                          src={img.url}
+                          alt={img.caption || "vibe"}
+                          className="w-full h-full object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveGalleryImage(img.id)}
+                          className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                        >
+                          <Trash2 className="w-4 h-4 text-white" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {uploading && (
                 <div className="col-span-1 md:col-span-2 flex items-center justify-center gap-2 text-pink-600 text-xs font-bold animate-pulse">
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -510,7 +636,7 @@ export default function CharacterSection({ isAdmin, showToast }: CharacterSectio
                 </button>
                 <button
                   type="submit"
-                  disabled={uploading}
+                  disabled={uploading || galleryUploading}
                   className="px-5 py-2 bg-gradient-to-r from-pink-400 to-purple-400 hover:from-pink-500 hover:to-purple-500 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-md"
                 >
                   <Save className="w-3.5 h-3.5" />
@@ -747,6 +873,37 @@ export default function CharacterSection({ isAdmin, showToast }: CharacterSectio
                 </div>
               </div>
 
+              {/* (3) Vibe Board - lưới ảnh phong cách Instagram */}
+              {(selectedCharacter as CharacterExt).gallery &&
+                (selectedCharacter as CharacterExt).gallery!.length > 0 && (
+                  <div className="mt-6 pt-5 border-t border-pink-100">
+                    <h4 className="text-xs uppercase tracking-widest font-bold text-slate-500 mb-3 flex items-center gap-1.5">
+                      <Images className="w-3.5 h-3.5 text-purple-400" />
+                      Vibe Board
+                    </h4>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {(selectedCharacter as CharacterExt).gallery!.map((img) => (
+                        <button
+                          key={img.id}
+                          type="button"
+                          onClick={() => setSelectedGalleryImage(img)}
+                          className="relative aspect-square rounded-lg overflow-hidden group"
+                        >
+                          <img
+                            src={img.url}
+                            alt={img.caption || selectedCharacter.name}
+                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                            referrerPolicy="no-referrer"
+                          />
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+                            <Maximize2 className="w-4 h-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
               {/* Detailed Plot (Cốt truyện phiêu lưu) */}
               <div className="mt-6 pt-5 border-t border-pink-100 text-slate-700">
                 <h4 className="text-xs uppercase tracking-widest font-bold text-slate-500 mb-2">
@@ -780,6 +937,47 @@ export default function CharacterSection({ isAdmin, showToast }: CharacterSectio
                     </div>
                   </div>
                 )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Vibe Gallery Lightbox */}
+      <AnimatePresence>
+        {selectedGalleryImage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md"
+            onClick={() => setSelectedGalleryImage(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="relative max-w-lg w-full"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={() => setSelectedGalleryImage(null)}
+                className="absolute -top-10 right-0 p-2 rounded-full bg-white/20 hover:bg-white/30 text-white transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+              <div className="rounded-2xl overflow-hidden shadow-2xl">
+                <img
+                  src={selectedGalleryImage.url}
+                  alt={selectedGalleryImage.caption || "vibe"}
+                  className="w-full h-auto object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+              {selectedGalleryImage.caption && (
+                <p className="text-center text-white/90 text-xs font-medium mt-3 italic">
+                  {selectedGalleryImage.caption}
+                </p>
+              )}
             </motion.div>
           </motion.div>
         )}
