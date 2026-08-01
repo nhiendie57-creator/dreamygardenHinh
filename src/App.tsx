@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { doc, onSnapshot } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { db } from "./config/firebase";
 import { UserProfile, TabType } from "./types";
 import { motion, AnimatePresence } from "motion/react";
@@ -38,23 +38,25 @@ export default function App() {
     }, 4000);
   };
 
-  // Listen to background image settings from Firestore
+  // Lấy dữ liệu ảnh nền từ Firestore 1 lần duy nhất lúc khởi động app
   useEffect(() => {
-    const docRef = doc(db, "settings", "app");
-    
-    // Realtime listen to background customization
-    const unsubscribe = onSnapshot(docRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        if (data && data.backgroundImage !== undefined) {
-          setCustomBgUrl(data.backgroundImage);
+    const fetchBackground = async () => {
+      try {
+        const docRef = doc(db, "settings", "app");
+        const docSnap = await getDoc(docRef);
+        
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data && data.backgroundImage !== undefined) {
+            setCustomBgUrl(data.backgroundImage);
+          }
         }
+      } catch (err) {
+        console.warn("Could not load background custom settings, fallback to gradient:", err);
       }
-    }, (err) => {
-      console.warn("Could not load background custom settings, fallback to gradient:", err);
-    });
+    };
 
-    return () => unsubscribe();
+    fetchBackground();
   }, []);
 
   const handleLogin = (user: UserProfile, adminStatus: boolean) => {
@@ -149,17 +151,17 @@ export default function App() {
                   customBgUrl={customBgUrl}
                 />
               )}
-  {activeTab === "characters" && (
-  <CharacterSection
-    isAdmin={isAdmin}
-    currentUser={currentUser}
-    onUpdateUser={handleUpdateUser}
-    showToast={showToast}
-  />
-)}
+              {activeTab === "characters" && (
+                <CharacterSection
+                  isAdmin={isAdmin}
+                  currentUser={currentUser}
+                  onUpdateUser={handleUpdateUser}
+                  showToast={showToast}
+                />
+              )}
               {activeTab === "confession" && (
                 <ConfessionNotes
-                  type="confession"
+                  type="confession" // Đã thêm prop type vào đây để tương thích với component
                   currentUser={currentUser}
                   isAdmin={isAdmin}
                   showToast={showToast}
@@ -167,7 +169,7 @@ export default function App() {
               )}
               {activeTab === "notes" && (
                 <ConfessionNotes
-                  type="notes"
+                  type="notes" // Đã thêm prop type vào đây để tương thích với component
                   currentUser={currentUser}
                   isAdmin={isAdmin}
                   showToast={showToast}
@@ -180,9 +182,9 @@ export default function App() {
                   showToast={showToast}
                 />
               )}
-{activeTab === "socials" && (
-  <Socials currentUser={currentUser ? { ...currentUser, isAdmin } : null} />
-)}
+              {activeTab === "socials" && (
+                <Socials currentUser={currentUser ? { ...currentUser, isAdmin } : null} />
+              )}
             </motion.div>
           </AnimatePresence>
         </main>
