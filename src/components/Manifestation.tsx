@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import { doc, setDoc, arrayUnion } from "firebase/firestore";
 import { db } from "../config/firebase";
-import { UserProfile } from "../types";
+import { UserProfile, KeyTier, UserKeys } from "../types";
 import { motion, AnimatePresence } from "motion/react";
-import { Send, Wand2, Info, Quote, CheckCircle2 } from "lucide-react";
+import { Send, Wand2, Info, Quote, CheckCircle2, KeyRound } from "lucide-react";
 
 interface ManifestationProps {
   currentUser: UserProfile | null;
@@ -18,6 +18,17 @@ interface StarParticle {
   delay: number;
 }
 
+// --- Hệ thống Chìa Khoá: đổi streak hiện tại lấy khoá, streak sẽ bị tiêu về 0 sau khi đổi ---
+// NOTE: metadata này được lặp lại giống hệt trong CharacterSection.tsx để 2 nơi luôn khớp mốc ngày.
+const KEY_TIER_META: Record<KeyTier, { label: string; threshold: number; emoji: string; color: string }> = {
+  bronze: { label: "Đồng", threshold: 10, emoji: "🥉", color: "border-orange-300 bg-orange-50 text-orange-700" },
+  silver: { label: "Bạc", threshold: 20, emoji: "🥈", color: "border-slate-300 bg-slate-100 text-slate-600" },
+  gold: { label: "Vàng", threshold: 30, emoji: "🥇", color: "border-amber-300 bg-amber-50 text-amber-600" },
+  diamond: { label: "Kim Cương", threshold: 40, emoji: "💎", color: "border-cyan-300 bg-cyan-50 text-cyan-600" },
+};
+const KEY_TIER_ORDER: KeyTier[] = ["bronze", "silver", "gold", "diamond"];
+const EMPTY_KEYS: UserKeys = { bronze: 0, silver: 0, gold: 0, diamond: 0 };
+
 export default function Manifestation({
   currentUser,
   onUpdateUser,
@@ -27,6 +38,7 @@ export default function Manifestation({
   const [isSending, setIsSending] = useState(false);
   const [showParticles, setShowParticles] = useState(false);
   const [particles, setParticles] = useState<StarParticle[]>([]);
+  const [redeemingTier, setRedeemingTier] = useState<KeyTier | null>(null);
 
   // --- LOGIC ĐẾM NGÀY MỚI (CHUẨN 100% THEO GIỜ ĐỊA PHƯƠNG) ---
   const checkStreakStatus = (lastDateStr?: string) => {
@@ -74,12 +86,11 @@ export default function Manifestation({
   }
 
   // Kỷ lục chuỗi cao nhất từng đạt được - KHÔNG BAO GIỜ GIẢM, kể cả khi đứt chuỗi hiện tại.
-  // Đây là con số dùng để mở khóa nhân vật (unlock theo mốc), để bạn nào lỡ quên 1 ngày
-  // cũng không bị "tước" lại link đã mở khóa trước đó.
   const highestStreak = currentUser?.highestStreak || 0;
 
   const historyList = currentUser?.manifestHistory || [];
   const lastWish = historyList.length > 0 ? historyList[historyList.length - 1].wish : null;
+  const userKeys = currentUser?.keys || EMPTY_KEYS;
 
   const handleSendWish = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -113,24 +124,23 @@ export default function Manifestation({
     }
 
     // Cập nhật kỷ lục cao nhất nếu chuỗi hiện tại vượt qua kỷ lục cũ.
-    // Đây chính là con số "vĩnh viễn" dùng để xét mốc mở khóa nhân vật.
     const previousHighest = currentUser.highestStreak || 0;
     const newHighestStreak = Math.max(previousHighest, newStreak);
     const justBrokeRecord = newHighestStreak > previousHighest;
 
     const currentWish = wish.trim();
     // Lưu chính xác tới từng giây của lúc bấm gửi để không bao giờ bị lệch múi giờ nữa
-    const exactTimeNow = new Date().toISOString(); 
+    const exactTimeNow = new Date().toISOString();
 
     try {
       const userId = currentUser.username?.toLowerCase() || currentUser.uid || currentUser.id || "unknown_user";
       const userRef = doc(db, "users", userId);
-      
+
       const updatedUser: UserProfile = {
         ...currentUser,
         currentStreak: newStreak,
         highestStreak: newHighestStreak,
-        lastManifestDate: exactTimeNow, 
+        lastManifestDate: exactTimeNow,
         manifestHistory: [...historyList, { wish: currentWish, date: exactTimeNow }],
       };
 
@@ -162,7 +172,7 @@ export default function Manifestation({
         onUpdateUser(updatedUser);
         setShowParticles(false);
         if (justBrokeRecord) {
-          showToast(`Kỷ lục mới! ✨ ${newHighestStreak} ngày liên tiếp - có thể đã mở khóa nhân vật mới!`, "success");
+          showToast(`Kỷ lục mới! ✨ ${newHighestStreak} ngày liên tiếp!`, "success");
         } else if (streakIncreased) {
           showToast(`Điều ước cất cánh! Streak tăng lên: ✨ ${newStreak} ngày`, "success");
         } else {
@@ -179,9 +189,59 @@ export default function Manifestation({
     }
   };
 
+  // Đổi streak hiện tại lấy 1 chìa khoá - streak sẽ bị tiêu về 0 sau khi đổi thành công
+  const handleRedeemKey = async (tier: KeyTier) => {
+    if (!currentUser) {
+      showToast("Vui lòng đăng nhập để đổi khoá! ✨", "info");
+      return;
+    }
+
+    const threshold = KEY_TIER_META[tier].threshold;
+    if (displayStreak < threshold) {
+      showToast(`Cần giữ chuỗi ít nhất ${threshold} ngày để đổi Khoá ${KEY_TIER_META[tier].label}!`, "error");
+      return;
+    }
+
+    setRedeemingTier(tier);
+    const updatedKeys: UserKeys = {
+      ...userKeys,
+      [tier]: (userKeys[tier] || 0) + 1,
+    };
+
+    try {
+      const userId = currentUser.username?.toLowerCase() || currentUser.uid || currentUser.id || "unknown_user";
+      const userRef = doc(db, "users", userId);
+
+      await setDoc(
+        userRef,
+        {
+          currentStreak: 0,
+          keys: updatedKeys,
+        },
+        { merge: true }
+      );
+
+      const updatedUser: UserProfile = {
+        ...currentUser,
+        currentStreak: 0,
+        keys: updatedKeys,
+      };
+      onUpdateUser(updatedUser);
+      showToast(
+        `Đã đổi thành công 1 Khoá ${KEY_TIER_META[tier].emoji} ${KEY_TIER_META[tier].label}! Chuỗi được reset về 0, cùng bắt đầu hành trình mới nhé! 🔑`,
+        "success"
+      );
+    } catch (err) {
+      console.error(err);
+      showToast("Đổi khoá thất bại, thử lại nhé!", "error");
+    } finally {
+      setRedeemingTier(null);
+    }
+  };
+
   return (
     <div className="w-full max-w-3xl mx-auto px-4 py-8 z-10 flex flex-col gap-6 relative">
-      
+
       {/* Tiêu đề trang */}
       <div className="text-center mb-4">
         <h2 className="text-3xl md:text-4xl font-bold text-indigo-900 mb-2 tracking-wide">
@@ -193,7 +253,7 @@ export default function Manifestation({
       </div>
 
       <div className="bg-white/20 backdrop-blur-lg border border-white/40 p-6 md:p-8 rounded-[36px] shadow-2xl w-full relative overflow-hidden transition-all duration-300">
-        
+
         <AnimatePresence>
           {showParticles && (
             <div className="absolute inset-0 pointer-events-none z-50 flex items-center justify-center">
@@ -225,7 +285,7 @@ export default function Manifestation({
           </span>
           {currentUser ? (
             <div className="flex flex-col items-end gap-1">
-              <motion.div 
+              <motion.div
                 className="text-sm font-bold text-indigo-600 bg-indigo-50/90 px-4 py-2 rounded-full shadow-sm border border-indigo-200 flex items-center gap-2"
                 animate={{ scale: [1, 1.02, 1] }}
                 transition={{ repeat: Infinity, duration: 2 }}
@@ -244,6 +304,45 @@ export default function Manifestation({
             </span>
           )}
         </div>
+
+        {/* --- Đổi Chuỗi Lấy Chìa Khoá --- */}
+        {currentUser && (
+          <div className="mb-6 bg-white/50 rounded-2xl p-5 border border-indigo-100/60 shadow-inner">
+            <span className="text-xs font-bold text-indigo-700 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+              <KeyRound className="w-4 h-4" />
+              Đổi Chuỗi Lấy Chìa Khoá
+            </span>
+            <p className="text-[10px] text-slate-500 mt-1 mb-3">
+              Đủ mốc là đổi được khoá tương ứng — lưu ý: đổi khoá sẽ tiêu hết chuỗi hiện tại về 0.
+            </p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              {KEY_TIER_ORDER.map((tier) => {
+                const meta = KEY_TIER_META[tier];
+                const canRedeem = displayStreak >= meta.threshold;
+                return (
+                  <button
+                    key={tier}
+                    type="button"
+                    disabled={!canRedeem || redeemingTier !== null}
+                    onClick={() => handleRedeemKey(tier)}
+                    className={`flex flex-col items-center gap-1 px-2 py-3 rounded-2xl border text-[10px] font-bold transition-all ${
+                      canRedeem
+                        ? `${meta.color} hover:scale-105 shadow-sm cursor-pointer`
+                        : "border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed opacity-70"
+                    }`}
+                  >
+                    <span className="text-xl">{meta.emoji}</span>
+                    <span>Khoá {meta.label}</span>
+                    <span className="opacity-80">{meta.threshold} ngày</span>
+                    <span className="mt-0.5 px-1.5 py-0.5 rounded-full bg-white/70 text-[9px]">
+                      Đang có: {userKeys[tier] || 0}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {currentUser && lastWish && displayStreak > 0 && (
           <div className="mb-6 bg-white/50 rounded-2xl p-5 border border-indigo-100/60 relative flex gap-3 items-start shadow-inner">
