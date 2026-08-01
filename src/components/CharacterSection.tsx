@@ -4,12 +4,55 @@ import { db } from "../config/firebase";
 import { Character } from "../types";
 // Đã sửa lại tên thư viện chuẩn để Vercel không báo lỗi
 import { motion, AnimatePresence } from "motion/react";
-import { Heart, Plus, Trash2, Edit2, X, Eye, Sparkles, Upload, Loader2, Save } from "lucide-react";
+import { Heart, Plus, Trash2, Edit2, X, Eye, Sparkles, Upload, Loader2, Save, Lock, Unlock, Clock, BookOpen } from "lucide-react";
 
 interface CharacterSectionProps {
   isAdmin: boolean;
   showToast: (message: string, type?: "success" | "error" | "info") => void;
 }
+
+// --- (1) Trạng thái tiến độ của nhân vật (hiển thị ngay trên profile) ---
+type CharacterStatus = "in-progress" | "unlocked" | "locked";
+
+const CHARACTER_STATUS_META: Record<
+  CharacterStatus,
+  { label: string; badge: string; icon: typeof Lock }
+> = {
+  "in-progress": {
+    label: "Đang tiến hành",
+    badge: "text-amber-600 bg-amber-50 border-amber-200",
+    icon: Clock,
+  },
+  unlocked: {
+    label: "Đã mở khoá (vui lòng tham gia Discord để nhận)",
+    badge: "text-emerald-600 bg-emerald-50 border-emerald-200",
+    icon: Unlock,
+  },
+  locked: {
+    label: "Đã khoá",
+    badge: "text-slate-500 bg-slate-100 border-slate-200",
+    icon: Lock,
+  },
+};
+
+// --- (2) Mạch truyện bổ sung / ngoại truyện — chỉ gồm tên + nội dung, KHÔNG có trạng thái riêng ---
+interface StoryArc {
+  id: string;
+  title: string;
+  content: string;
+}
+
+// NOTE: Nếu file "../types" chưa có 2 field này, hãy bổ sung vào interface Character:
+//   status?: "in-progress" | "unlocked" | "locked";
+//   statusReason?: string;
+//   storyArcs?: { id: string; title: string; content: string }[];
+// Trong lúc chờ cập nhật types.ts, component dùng type mở rộng CharacterExt bên dưới
+// để không phá vỡ build hiện tại.
+type CharacterExt = Character & {
+  status?: CharacterStatus;
+  statusReason?: string;
+  storyArcs?: StoryArc[];
+};
 
 // Đã làm trống danh sách mặc định để vườn chỉ hiện nhân vật do admin tạo
 const DEFAULT_CHARACTERS: Character[] = [];
@@ -18,7 +61,7 @@ export default function CharacterSection({ isAdmin, showToast }: CharacterSectio
   const [characters, setCharacters] = useState<Character[]>([]);
   const [activeFilter, setActiveFilter] = useState("All");
   const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
-  
+
   // Create / Edit Form State
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -28,6 +71,15 @@ export default function CharacterSection({ isAdmin, showToast }: CharacterSectio
   const [formTags, setFormTags] = useState("");
   const [formAvatar, setFormAvatar] = useState("");
   const [uploading, setUploading] = useState(false);
+
+  // (1) Trạng thái tiến độ của nhân vật
+  const [formStatus, setFormStatus] = useState<CharacterStatus>("in-progress");
+  const [formStatusReason, setFormStatusReason] = useState("");
+
+  // (2) Mạch truyện bổ sung (ngoại truyện) - danh sách riêng biệt
+  const [formStoryArcs, setFormStoryArcs] = useState<StoryArc[]>([]);
+  const [arcTitle, setArcTitle] = useState("");
+  const [arcContent, setArcContent] = useState("");
 
   // Firestore Realtime Synchronization
   useEffect(() => {
@@ -64,7 +116,8 @@ export default function CharacterSection({ isAdmin, showToast }: CharacterSectio
     event.stopPropagation();
     try {
       const isDefaultStatic = character.id.startsWith("default-");
-      
+      const ext = character as CharacterExt;
+
       if (isDefaultStatic) {
         const targetId = character.id;
         const charRef = doc(db, "characters", targetId);
@@ -75,6 +128,9 @@ export default function CharacterSection({ isAdmin, showToast }: CharacterSectio
           plot: character.plot,
           tags: character.tags,
           likes: character.likes + 1,
+          status: ext.status || "in-progress",
+          statusReason: ext.statusReason || "",
+          storyArcs: ext.storyArcs || [],
           createdAt: new Date().toISOString(),
         });
         showToast(`Đã thả tim cho ${character.name}! 💕`, "success");
@@ -124,6 +180,28 @@ export default function CharacterSection({ isAdmin, showToast }: CharacterSectio
     }
   };
 
+  // Thêm một mạch truyện bổ sung (ngoại truyện) vào danh sách tạm của form
+  const handleAddStoryArc = () => {
+    if (!arcTitle.trim() || !arcContent.trim()) {
+      showToast("Vui lòng nhập đủ tên và nội dung mạch truyện!", "error");
+      return;
+    }
+
+    const newArc: StoryArc = {
+      id: `arc-${Date.now()}`,
+      title: arcTitle.trim(),
+      content: arcContent.trim(),
+    };
+
+    setFormStoryArcs((prev) => [...prev, newArc]);
+    setArcTitle("");
+    setArcContent("");
+  };
+
+  const handleRemoveStoryArc = (id: string) => {
+    setFormStoryArcs((prev) => prev.filter((a) => a.id !== id));
+  };
+
   // Create or Update Character inside Firestore
   const handleSaveCharacter = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -145,6 +223,9 @@ export default function CharacterSection({ isAdmin, showToast }: CharacterSectio
         plot: formPlot.trim(),
         tags: parsedTags.length > 0 ? parsedTags : ["Dreamy"],
         likes: editingId ? (characters.find((c) => c.id === editingId)?.likes || 0) : 0,
+        status: formStatus,
+        statusReason: formStatus === "locked" ? formStatusReason.trim() : "",
+        storyArcs: formStoryArcs,
         createdAt: new Date().toISOString(),
       };
 
@@ -162,6 +243,11 @@ export default function CharacterSection({ isAdmin, showToast }: CharacterSectio
       setFormPlot("");
       setFormTags("");
       setFormAvatar("");
+      setFormStatus("in-progress");
+      setFormStatusReason("");
+      setFormStoryArcs([]);
+      setArcTitle("");
+      setArcContent("");
       setEditingId(null);
       setShowForm(false);
     } catch (err) {
@@ -186,18 +272,24 @@ export default function CharacterSection({ isAdmin, showToast }: CharacterSectio
 
   // Edit Button Trigger
   const handleStartEdit = (char: Character) => {
+    const ext = char as CharacterExt;
     setEditingId(char.id);
     setFormName(char.name);
     setFormRole(char.role);
     setFormPlot(char.plot);
     setFormTags(char.tags.join(", "));
     setFormAvatar(char.avatar);
+    setFormStatus(ext.status || "in-progress");
+    setFormStatusReason(ext.statusReason || "");
+    setFormStoryArcs(ext.storyArcs || []);
+    setArcTitle("");
+    setArcContent("");
     setShowForm(true);
   };
 
   return (
     <div className="w-full max-w-6xl mx-auto px-4 py-8 z-10 flex flex-col gap-6 relative">
-      
+
       {/* Header with Admin Creation Trigger */}
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-display text-white text-glow-pearl flex items-center gap-2">
@@ -233,7 +325,7 @@ export default function CharacterSection({ isAdmin, showToast }: CharacterSectio
                   🌸 {editingId ? "Hiệu Chỉnh Nhân Vật" : "Tạo Nhân Vật Mới"}
                 </h3>
               </div>
-              
+
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-bold text-slate-600">Tên Nhân Vật</label>
                 <input
@@ -304,6 +396,88 @@ export default function CharacterSection({ isAdmin, showToast }: CharacterSectio
                 />
               </div>
 
+              {/* ---- (1) Trạng thái tiến độ của nhân vật ---- */}
+              <div className="col-span-1 md:col-span-2 flex flex-col gap-2 pt-3 border-t border-pink-100">
+                <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-purple-400" />
+                  Trạng Thái Tiến Độ Nhân Vật
+                </label>
+                <select
+                  value={formStatus}
+                  onChange={(e) => setFormStatus(e.target.value as CharacterStatus)}
+                  className="bg-white/50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white"
+                >
+                  <option value="in-progress">Đang tiến hành</option>
+                  <option value="unlocked">Đã mở khoá</option>
+                  <option value="locked">Đã khoá</option>
+                </select>
+
+                {formStatus === "locked" && (
+                  <input
+                    type="text"
+                    placeholder="Lý do khoá (ví dụ: chưa đủ điều kiện mở khoá...)"
+                    value={formStatusReason}
+                    onChange={(e) => setFormStatusReason(e.target.value)}
+                    className="bg-white/50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white"
+                  />
+                )}
+              </div>
+
+              {/* ---- (2) Mạch truyện bổ sung (ngoại truyện) - phần riêng biệt ---- */}
+              <div className="col-span-1 md:col-span-2 flex flex-col gap-2 pt-3 border-t border-pink-100">
+                <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+                  <BookOpen className="w-3.5 h-3.5 text-purple-400" />
+                  Mạch Truyện Bổ Sung (Ngoại truyện)
+                </label>
+
+                <input
+                  type="text"
+                  placeholder="Tên mạch truyện / ngoại truyện"
+                  value={arcTitle}
+                  onChange={(e) => setArcTitle(e.target.value)}
+                  className="bg-white/50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white"
+                />
+                <textarea
+                  rows={3}
+                  placeholder="Nội dung ngoại truyện..."
+                  value={arcContent}
+                  onChange={(e) => setArcContent(e.target.value)}
+                  className="bg-white/50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white resize-none"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddStoryArc}
+                  className="self-start px-3 py-1.5 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-xl text-xs font-bold transition-colors flex items-center gap-1"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Thêm mạch truyện
+                </button>
+
+                {formStoryArcs.length > 0 && (
+                  <div className="flex flex-col gap-1.5 mt-1">
+                    {formStoryArcs.map((arc) => (
+                      <div
+                        key={arc.id}
+                        className="flex items-start gap-2 px-3 py-2 rounded-xl border border-purple-100 bg-purple-50/50 text-[11px]"
+                      >
+                        <BookOpen className="w-3 h-3 flex-shrink-0 mt-0.5 text-purple-400" />
+                        <div className="flex-1">
+                          <p className="font-bold text-slate-700">{arc.title}</p>
+                          <p className="text-slate-500 line-clamp-2">{arc.content}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveStoryArc(arc.id)}
+                          className="hover:scale-110 transition-transform text-slate-400 hover:text-rose-500"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {uploading && (
                 <div className="col-span-1 md:col-span-2 flex items-center justify-center gap-2 text-pink-600 text-xs font-bold animate-pulse">
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -346,7 +520,7 @@ export default function CharacterSection({ isAdmin, showToast }: CharacterSectio
       </AnimatePresence>
 
       {/* Filter Tags (Horizontal, hide scrollbar) */}
-      <div 
+      <div
         id="filter-tags-container"
         className="w-full overflow-x-auto hide-scrollbar flex gap-2 pb-2 border-b border-white/20"
       >
@@ -378,7 +552,7 @@ export default function CharacterSection({ isAdmin, showToast }: CharacterSectio
               transition={{ duration: 0.4 }}
               className="relative p-6 rounded-[32px] glass-panel hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 flex flex-col items-center text-center group"
             >
-              
+
               {/* Admin actions (Edit/Delete icons) - Đã sửa để luôn hiện trên iPad, dùng dấu X */}
               {isAdmin && (
                 <div className="absolute top-4 right-4 flex gap-1.5 z-10">
@@ -404,7 +578,7 @@ export default function CharacterSection({ isAdmin, showToast }: CharacterSectio
                 {/* Spinning liquid gradient borders */}
                 <div className="absolute -inset-1.5 rounded-full bg-gradient-to-tr from-green-300 via-pink-300 to-purple-300 blur-sm animate-wave-rotate opacity-75" />
                 <div className="absolute -inset-1 rounded-full liquid-border opacity-90" />
-                
+
                 {/* Standard Avatar Image */}
                 <div className="relative w-full h-full rounded-full overflow-hidden border-2 border-white bg-slate-100 z-10 shadow-inner">
                   <img
@@ -490,6 +664,26 @@ export default function CharacterSection({ isAdmin, showToast }: CharacterSectio
                 <X className="w-4 h-4" />
               </button>
 
+              {/* (1) Badge trạng thái tiến độ - hiển thị ngay trên đầu profile */}
+              {(selectedCharacter as CharacterExt).status && (() => {
+                const meta = CHARACTER_STATUS_META[(selectedCharacter as CharacterExt).status!];
+                const Icon = meta.icon;
+                return (
+                  <div
+                    className={`self-center md:self-start inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[10px] font-bold mb-4 ${meta.badge}`}
+                  >
+                    <Icon className="w-3 h-3" />
+                    <span>{meta.label}</span>
+                    {(selectedCharacter as CharacterExt).status === "locked" &&
+                      (selectedCharacter as CharacterExt).statusReason && (
+                        <span className="font-normal italic opacity-80">
+                          · {(selectedCharacter as CharacterExt).statusReason}
+                        </span>
+                      )}
+                  </div>
+                );
+              })()}
+
               <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
                 {/* Large Avatar */}
                 <div className="relative w-40 h-40 flex-shrink-0">
@@ -527,7 +721,7 @@ export default function CharacterSection({ isAdmin, showToast }: CharacterSectio
                       </span>
                     ))}
                   </div>
-                  
+
                   {/* Hearts metrics */}
                   <div className="flex items-center justify-center md:justify-start gap-1 text-pink-600 mt-4 font-bold text-xs">
                     <Heart className="w-4 h-4 fill-pink-500 text-pink-500 animate-pulse" />
@@ -545,6 +739,30 @@ export default function CharacterSection({ isAdmin, showToast }: CharacterSectio
                   {selectedCharacter.plot}
                 </div>
               </div>
+
+              {/* (2) Mạch Truyện Bổ Sung (Ngoại truyện) - ngay dưới Tiểu Sử, không có trạng thái riêng */}
+              {(selectedCharacter as CharacterExt).storyArcs &&
+                (selectedCharacter as CharacterExt).storyArcs!.length > 0 && (
+                  <div className="mt-6 pt-5 border-t border-pink-100 text-slate-700">
+                    <h4 className="text-xs uppercase tracking-widest font-bold text-slate-500 mb-3 flex items-center gap-1.5">
+                      <BookOpen className="w-3.5 h-3.5 text-purple-400" />
+                      Mạch Truyện Bổ Sung
+                    </h4>
+                    <div className="flex flex-col gap-3">
+                      {(selectedCharacter as CharacterExt).storyArcs!.map((arc) => (
+                        <div
+                          key={arc.id}
+                          className="px-3.5 py-3 rounded-2xl border border-purple-100 bg-purple-50/40"
+                        >
+                          <p className="text-xs font-bold text-purple-700 mb-1">{arc.title}</p>
+                          <p className="text-xs leading-relaxed text-slate-600 whitespace-pre-line">
+                            {arc.content}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
             </motion.div>
           </motion.div>
         )}
