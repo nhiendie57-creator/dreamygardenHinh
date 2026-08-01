@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
-import { collection, getDocs, addDoc, query, orderBy } from "firebase/firestore";
+// Đã thêm limit vào danh sách import
+import { collection, getDocs, addDoc, query, orderBy, limit } from "firebase/firestore";
 import { db } from "../config/firebase";
 import { Song } from "../types";
 import { Plus, Loader2, Music, ListMusic, Link as LinkIcon, UploadCloud } from "lucide-react";
@@ -20,7 +21,7 @@ export default function MusicPlayer({ isAdmin, showToast }: MusicPlayerProps) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [showPlaylist, setShowPlaylist] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [uploadMode, setUploadMode] = useState<"url" | "file">("file"); // Ưu tiên tab tải file
+  const [uploadMode, setUploadMode] = useState<"url" | "file">("file");
 
   // Form States
   const [songTitle, setSongTitle] = useState("");
@@ -30,11 +31,15 @@ export default function MusicPlayer({ isAdmin, showToast }: MusicPlayerProps) {
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Load songs from Firestore
+  // Load songs from Firestore - Đã tối ưu bằng limit(25)
   useEffect(() => {
     async function fetchSongs() {
       try {
-        const q = query(collection(db, "songs"), orderBy("createdAt", "desc"));
+        const q = query(
+          collection(db, "songs"), 
+          orderBy("createdAt", "desc"),
+          limit(25) // TỐI ƯU: Chỉ tải 25 bài hát mới nhất để tiết kiệm Reads
+        );
         const snapshot = await getDocs(q);
         const fetchedSongs: Song[] = snapshot.docs.map((doc) => ({
           id: doc.id,
@@ -95,7 +100,7 @@ export default function MusicPlayer({ isAdmin, showToast }: MusicPlayerProps) {
     setShowPlaylist(false);
   };
 
-  // Tải nhạc: Kết hợp đúng chuẩn Cloudinary + Firebase giống web cũ
+  // Tải nhạc: Kết hợp đúng chuẩn Cloudinary + Firebase
   const handleAddSong = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!songTitle || !songArtist) {
@@ -125,7 +130,6 @@ export default function MusicPlayer({ isAdmin, showToast }: MusicPlayerProps) {
         formData.append("file", mp3File);
         formData.append("upload_preset", "dreamy_garden_preset");
 
-        // Gọi thẳng vào endpoint 'video' vì Cloudinary xếp file âm thanh là video
         const response = await fetch("https://api.cloudinary.com/v1_1/i7upt5gk/video/upload", {
           method: "POST",
           body: formData,
@@ -133,10 +137,9 @@ export default function MusicPlayer({ isAdmin, showToast }: MusicPlayerProps) {
 
         if (!response.ok) throw new Error("Lỗi tải MP3 lên Cloudinary");
         const data = await response.json();
-        finalUrl = data.secure_url; // Lấy link Cloudinary trả về
+        finalUrl = data.secure_url;
       }
 
-      // Lưu Link vừa lấy được vào Firestore Firebase
       const newSongData = {
         title: songTitle.trim(),
         artist: songArtist.trim(),
@@ -147,11 +150,13 @@ export default function MusicPlayer({ isAdmin, showToast }: MusicPlayerProps) {
       const docRef = await addDoc(collection(db, "songs"), newSongData);
       const newSong: Song = { id: docRef.id, ...newSongData };
 
-      // Update Local State
-      setSongs((prev) => [newSong, ...prev]);
+      // Cập nhật lại UI nhưng vẫn giữ nguyên giới hạn an toàn
+      setSongs((prev) => {
+        const updatedList = [newSong, ...prev];
+        return updatedList.slice(0, 25); // Đảm bảo danh sách hiển thị không bao giờ vượt quá 25
+      });
       showToast("Bài hát mới đã được thêm vào vườn! 🌱🎵", "success");
 
-      // Reset fields
       setSongTitle("");
       setSongArtist("");
       setSongUrl("");
@@ -193,7 +198,6 @@ export default function MusicPlayer({ isAdmin, showToast }: MusicPlayerProps) {
               Thêm nhạc vào vườn 🎵
             </div>
             
-            {/* Toggle Upload Mode */}
             <div className="flex bg-white/50 rounded-lg p-1">
               <button
                 type="button"
