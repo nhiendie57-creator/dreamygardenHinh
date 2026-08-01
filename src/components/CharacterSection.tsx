@@ -1099,21 +1099,19 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                       Vibe Board
                     </h4>
 
-                    <div className="grid grid-cols-6 auto-rows-[70px] gap-2">
+                    <div className="grid grid-cols-3 gap-2 [grid-auto-flow:dense]">
                       {(selectedCharacter as CharacterExt).gallery!.map((img, i) => {
-                        // Nhịp kích thước xen kẽ: 1 ảnh to, 2 ảnh nhỏ, lặp lại theo chu kỳ 3
-                        const pattern = [
-                          "col-span-4 row-span-2",
-                          "col-span-2 row-span-1",
-                          "col-span-2 row-span-1",
-                        ];
-                        const span = pattern[i % pattern.length];
+                        // Cứ mỗi 6 ảnh thì có 1 ảnh "nổi bật" chiếm khối vuông 2x2,
+                        // còn lại là ô vuông nhỏ — TẤT CẢ đều dùng aspect-square
+                        // nên ảnh không bao giờ bị bẹp/kéo dãn nữa.
+                        const isFeatured = i % 6 === 0;
+                        const span = isFeatured ? "col-span-2 row-span-2" : "";
                         const tilt = i % 3 === 0 ? "-rotate-1" : i % 3 === 1 ? "rotate-1" : "rotate-0";
 
                         return (
                           <div
                             key={img.id}
-                            className={`relative rounded-2xl overflow-hidden group shadow-md ring-1 ring-white/60 ${span} ${tilt} hover:rotate-0 hover:scale-[1.03] hover:z-10 hover:shadow-xl transition-all duration-300 ease-out`}
+                            className={`relative aspect-square rounded-2xl overflow-hidden group shadow-md ring-1 ring-white/60 ${span} ${tilt} hover:rotate-0 hover:scale-[1.03] hover:z-10 hover:shadow-xl transition-all duration-300 ease-out`}
                           >
                             <img
                               src={img.url}
@@ -1138,7 +1136,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
               {/* Detailed Plot (Cốt truyện phiêu lưu) — giờ nằm SAU Vibe Board */}
               <div className="mt-6 pt-5 border-t border-pink-100 text-slate-700">
                 <h4 className="text-xs uppercase tracking-widest font-bold text-slate-500 mb-2">
-                  Plot: cốt truyện chính
+                  PLOT: cốt truyện chính
                 </h4>
                 <div className="text-sm leading-loose whitespace-pre-line text-slate-700/90 font-medium">
                   {selectedCharacter.plot}
