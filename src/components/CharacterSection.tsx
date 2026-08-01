@@ -4,11 +4,14 @@ import { db } from "../config/firebase";
 import { Character } from "../types";
 // Đã sửa lại tên thư viện chuẩn để Vercel không báo lỗi
 import { motion, AnimatePresence } from "motion/react";
-import { Heart, Plus, Trash2, Edit2, X, Eye, Sparkles, Upload, Loader2, Save, Lock, Unlock, Clock, BookOpen, Images, Maximize2 } from "lucide-react";
+import { Heart, Plus, Trash2, Edit2, X, Eye, Sparkles, Upload, Loader2, Save, Lock, Unlock, Clock, BookOpen, Images, Maximize2, Flame, ExternalLink } from "lucide-react";
 
 interface CharacterSectionProps {
   isAdmin: boolean;
   showToast: (message: string, type?: "success" | "error" | "info") => void;
+  // Kỷ lục streak cao nhất của user hiện tại (currentUser?.highestStreak từ App.tsx truyền xuống)
+  // Dùng để so sánh với mốc requiredStreak của từng nhân vật.
+  userHighestStreak?: number;
 }
 
 // --- (1) Trạng thái tiến độ của nhân vật (hiển thị ngay trên profile) ---
@@ -57,6 +60,8 @@ interface GalleryImage {
 //   statusReason?: string;
 //   storyArcs?: { id: string; title: string; content: string }[];
 //   gallery?: { id: string; url: string; caption?: string }[];
+//   requiredStreak?: number;   // mốc số ngày streak cần đạt để mở khóa link, do admin tự đặt (0 = không yêu cầu)
+//   unlockLink?: string;       // link được mở ra khi user đạt đủ mốc requiredStreak
 // Trong lúc chờ cập nhật types.ts, component dùng type mở rộng CharacterExt bên dưới
 // để không phá vỡ build hiện tại.
 type CharacterExt = Character & {
@@ -64,12 +69,14 @@ type CharacterExt = Character & {
   statusReason?: string;
   storyArcs?: StoryArc[];
   gallery?: GalleryImage[];
+  requiredStreak?: number;
+  unlockLink?: string;
 };
 
 // Đã làm trống danh sách mặc định để vườn chỉ hiện nhân vật do admin tạo
 const DEFAULT_CHARACTERS: Character[] = [];
 
-export default function CharacterSection({ isAdmin, showToast }: CharacterSectionProps) {
+export default function CharacterSection({ isAdmin, showToast, userHighestStreak = 0 }: CharacterSectionProps) {
   const [characters, setCharacters] = useState<Character[]>([]);
   const [activeFilter, setActiveFilter] = useState("All");
   const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
@@ -98,6 +105,10 @@ export default function CharacterSection({ isAdmin, showToast }: CharacterSectio
   const [formGallery, setFormGallery] = useState<GalleryImage[]>([]);
   const [galleryCaption, setGalleryCaption] = useState("");
   const [galleryUploading, setGalleryUploading] = useState(false);
+
+  // (4) Mốc mở khóa theo Streak - chị tự đặt số ngày + link cho từng nhân vật, không hard-code sẵn
+  const [formRequiredStreak, setFormRequiredStreak] = useState("");
+  const [formUnlockLink, setFormUnlockLink] = useState("");
 
   // Firestore Realtime Synchronization
   useEffect(() => {
@@ -150,6 +161,8 @@ export default function CharacterSection({ isAdmin, showToast }: CharacterSectio
           statusReason: ext.statusReason || "",
           storyArcs: ext.storyArcs || [],
           gallery: ext.gallery || [],
+          requiredStreak: ext.requiredStreak || 0,
+          unlockLink: ext.unlockLink || "",
           createdAt: new Date().toISOString(),
         });
         showToast(`Đã thả tim cho ${character.name}! 💕`, "success");
@@ -279,6 +292,9 @@ export default function CharacterSection({ isAdmin, showToast }: CharacterSectio
         .map((t) => t.trim())
         .filter((t) => t.length > 0);
 
+      // Mốc streak do chị tự nhập (0 hoặc để trống = không yêu cầu streak, ai cũng thấy link nếu có)
+      const parsedRequiredStreak = Math.max(0, parseInt(formRequiredStreak, 10) || 0);
+
       const characterData = {
         name: formName.trim(),
         role: formRole.trim(),
@@ -290,6 +306,8 @@ export default function CharacterSection({ isAdmin, showToast }: CharacterSectio
         statusReason: formStatus === "locked" ? formStatusReason.trim() : "",
         storyArcs: formStoryArcs,
         gallery: formGallery,
+        requiredStreak: parsedRequiredStreak,
+        unlockLink: formUnlockLink.trim(),
         createdAt: new Date().toISOString(),
       };
 
@@ -314,6 +332,8 @@ export default function CharacterSection({ isAdmin, showToast }: CharacterSectio
       setArcContent("");
       setFormGallery([]);
       setGalleryCaption("");
+      setFormRequiredStreak("");
+      setFormUnlockLink("");
       setEditingId(null);
       setShowForm(false);
     } catch (err) {
@@ -352,6 +372,8 @@ export default function CharacterSection({ isAdmin, showToast }: CharacterSectio
     setArcContent("");
     setFormGallery(ext.gallery || []);
     setGalleryCaption("");
+    setFormRequiredStreak(ext.requiredStreak ? String(ext.requiredStreak) : "");
+    setFormUnlockLink(ext.unlockLink || "");
     setShowForm(true);
   };
 
@@ -489,6 +511,34 @@ export default function CharacterSection({ isAdmin, showToast }: CharacterSectio
                     className="bg-white/50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white"
                   />
                 )}
+              </div>
+
+              {/* ---- (4) Mốc mở khóa theo Streak Manifest - chị tự đặt riêng cho từng nhân vật ---- */}
+              <div className="col-span-1 md:col-span-2 flex flex-col gap-2 pt-3 border-t border-pink-100">
+                <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+                  <Flame className="w-3.5 h-3.5 text-orange-400" />
+                  Mốc Mở Khóa Theo Streak Manifest
+                </label>
+                <p className="text-[10px] text-slate-500 -mt-1">
+                  Để trống hoặc 0 = ai cũng xem được link (không yêu cầu streak). Chị tự đặt số ngày riêng cho từng nhân vật.
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <input
+                    type="number"
+                    min={0}
+                    placeholder="Số ngày streak cần đạt (ví dụ: 7)"
+                    value={formRequiredStreak}
+                    onChange={(e) => setFormRequiredStreak(e.target.value)}
+                    className="bg-white/50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Link mở khóa (Discord, Drive, ...)"
+                    value={formUnlockLink}
+                    onChange={(e) => setFormUnlockLink(e.target.value)}
+                    className="bg-white/50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white"
+                  />
+                </div>
               </div>
 
               {/* ---- (2) Mạch truyện bổ sung (ngoại truyện) - phần riêng biệt ---- */}
@@ -671,7 +721,12 @@ export default function CharacterSection({ isAdmin, showToast }: CharacterSectio
       {/* Characters Card Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         <AnimatePresence>
-          {filteredCharacters.map((char) => (
+          {filteredCharacters.map((char) => {
+            const ext = char as CharacterExt;
+            const hasStreakGate = !!ext.requiredStreak && ext.requiredStreak > 0;
+            const isStreakUnlocked = !hasStreakGate || userHighestStreak >= (ext.requiredStreak || 0);
+
+            return (
             <motion.div
               key={char.id}
               layout
@@ -728,18 +783,34 @@ export default function CharacterSection({ isAdmin, showToast }: CharacterSectio
               </p>
 
               {/* Status Badge - hiện ngay trên card, không cần bấm Chi tiết */}
-              {(char as CharacterExt).status && (() => {
-                const meta = CHARACTER_STATUS_META[(char as CharacterExt).status!];
+              {ext.status && (() => {
+                const meta = CHARACTER_STATUS_META[ext.status!];
                 const Icon = meta.icon;
                 return (
                   <div
-                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-[9px] font-bold mb-3 max-w-full ${meta.badge}`}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-[9px] font-bold mb-2 max-w-full ${meta.badge}`}
                   >
                     <Icon className="w-3 h-3 flex-shrink-0" />
                     <span className="truncate">{meta.shortLabel}</span>
                   </div>
                 );
               })()}
+
+              {/* Streak Gate Badge - chỉ hiện nếu nhân vật này có đặt mốc streak */}
+              {hasStreakGate && (
+                <div
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-[9px] font-bold mb-3 max-w-full ${
+                    isStreakUnlocked
+                      ? "text-orange-600 bg-orange-50 border-orange-200"
+                      : "text-slate-500 bg-slate-100 border-slate-200"
+                  }`}
+                >
+                  <Flame className="w-3 h-3 flex-shrink-0" />
+                  <span className="truncate">
+                    {isStreakUnlocked ? "Đã mở khoá link" : `Cần streak ${ext.requiredStreak} ngày`}
+                  </span>
+                </div>
+              )}
 
               {/* Tag Capsules */}
               <div className="flex flex-wrap gap-1 justify-center mb-4">
@@ -778,7 +849,8 @@ export default function CharacterSection({ isAdmin, showToast }: CharacterSectio
               </div>
 
             </motion.div>
-          ))}
+            );
+          })}
         </AnimatePresence>
       </div>
 
@@ -872,6 +944,55 @@ export default function CharacterSection({ isAdmin, showToast }: CharacterSectio
                   </div>
                 </div>
               </div>
+
+              {/* (4) Mở khóa theo Streak Manifest - chỉ hiện nếu nhân vật này có đặt mốc */}
+              {(() => {
+                const ext = selectedCharacter as CharacterExt;
+                const requiredStreak = ext.requiredStreak || 0;
+                if (requiredStreak <= 0) return null;
+
+                const isUnlocked = userHighestStreak >= requiredStreak;
+                const progressPct = Math.min(100, Math.round((userHighestStreak / requiredStreak) * 100));
+
+                return (
+                  <div className="mt-6 pt-5 border-t border-pink-100">
+                    <h4 className="text-xs uppercase tracking-widest font-bold text-slate-500 mb-3 flex items-center gap-1.5">
+                      <Flame className="w-3.5 h-3.5 text-orange-400" />
+                      Mở Khóa Theo Streak Manifest
+                    </h4>
+
+                    {isUnlocked ? (
+                      ext.unlockLink ? (
+                        <a
+                          href={ext.unlockLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-orange-400 to-pink-400 hover:from-orange-500 hover:to-pink-500 text-white rounded-xl text-xs font-bold shadow-md transition-all hover:scale-105"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          Nhận link nhân vật ({requiredStreak} ngày)
+                        </a>
+                      ) : (
+                        <p className="text-xs font-semibold text-emerald-600">
+                          Bạn đã đủ điều kiện, nhưng chưa có link được thiết lập.
+                        </p>
+                      )
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        <p className="text-xs font-semibold text-slate-600">
+                          Cần đạt streak {requiredStreak} ngày. Hiện tại: {userHighestStreak} ngày (còn {Math.max(0, requiredStreak - userHighestStreak)} ngày nữa).
+                        </p>
+                        <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-orange-400 to-pink-400 rounded-full transition-all"
+                            style={{ width: `${progressPct}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* (3) Vibe Board - lưới ảnh phong cách Instagram */}
               {(selectedCharacter as CharacterExt).gallery &&
