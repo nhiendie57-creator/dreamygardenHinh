@@ -98,16 +98,18 @@ export default function App() {
         </AnimatePresence>
       </div>
 
-      {/* 3. Active Admin Super Admin pill warning in Top-Center */}
+      {/* 3. Active Admin badge - đặt gọn ở góc phải dưới Navbar, không che navbar hay nội dung */}
       {isAdmin && (
-        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[150] pointer-events-none">
+        <div className="fixed top-20 right-4 z-30 pointer-events-none">
           <motion.div
-            initial={{ y: -30, opacity: 0 }}
+            initial={{ y: -20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            className="bg-pink-100/90 backdrop-blur-md border border-pink-300 text-pink-700 px-4 py-1.5 rounded-full text-[11px] font-bold tracking-wide shadow-md flex items-center gap-1.5 shadow-pink-100/50"
+            className="bg-pink-100/90 backdrop-blur-md border border-pink-300 text-pink-700 pl-2 pr-3 py-1 rounded-full text-[10px] font-bold tracking-wide shadow-md flex items-center gap-1 shadow-pink-100/50"
+            title="Bạn đang thao tác với vai trò là quản trị viên của Dreamy Garden"
           >
-            <CheckCircle className="w-4 h-4 text-pink-500 animate-pulse" />
-            Bạn đang thao tác với vai trò là quản trị viên của Dreamy Garden
+            <CheckCircle className="w-3.5 h-3.5 text-pink-500 flex-shrink-0" />
+            <span className="hidden sm:inline">Quản trị viên</span>
+            <span className="sm:hidden">QTV</span>
           </motion.div>
         </div>
       )}
