@@ -30,8 +30,8 @@ const CHARACTER_STATUS_META: Record<
     icon: Clock,
   },
   unlocked: {
-    label: "Đã mở khoá (vui lòng tham gia Discord để nhận)",
-    shortLabel: "Đã mở khoá",
+    label: "Đã hoàn thành",
+    shortLabel: "Đã hoàn thành",
     badge: "text-emerald-600 bg-emerald-50 border-emerald-200",
     icon: Unlock,
   },
@@ -561,7 +561,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                   className="bg-white/50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white"
                 >
                   <option value="in-progress">Đang tiến hành</option>
-                  <option value="unlocked">Đã mở khoá</option>
+                  <option value="unlocked">Đã hoàn thành</option>
                   <option value="locked">Đã khoá</option>
                 </select>
 
@@ -844,36 +844,38 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                   {char.role}
                 </p>
 
-                {/* Badge: Nếu có Key Gate thì ưu tiên hiện badge khoá, ngược lại hiện Trạng Thái thủ công */}
-                {hasKeyGate ? (
-                  <div
-                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-[9px] font-bold mb-3 max-w-full ${
-                      isKeyUnlocked
-                        ? "text-emerald-600 bg-emerald-50 border-emerald-200"
-                        : KEY_TIER_META[ext.requiredKeyTier!].badge
-                    }`}
-                  >
-                    {isKeyUnlocked ? <Unlock className="w-3 h-3 flex-shrink-0" /> : <Lock className="w-3 h-3 flex-shrink-0" />}
-                    <span className="truncate">
-                      {isKeyUnlocked
-                        ? "Đã mở khoá"
-                        : `${KEY_TIER_META[ext.requiredKeyTier!].emoji} Cần Khoá ${KEY_TIER_META[ext.requiredKeyTier!].label}`}
-                    </span>
-                  </div>
-                ) : (
-                  ext.status && (() => {
+                {/* Badge: hiện CẢ Trạng Thái tiến độ VÀ Yêu Cầu Khoá cùng lúc - 2 khái niệm khác nhau */}
+                <div className="flex flex-col items-center gap-1.5 mb-3 max-w-full">
+                  {ext.status && (() => {
                     const meta = CHARACTER_STATUS_META[ext.status!];
                     const Icon = meta.icon;
                     return (
                       <div
-                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-[9px] font-bold mb-3 max-w-full ${meta.badge}`}
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-[9px] font-bold max-w-full ${meta.badge}`}
                       >
                         <Icon className="w-3 h-3 flex-shrink-0" />
                         <span className="truncate">{meta.shortLabel}</span>
                       </div>
                     );
-                  })()
-                )}
+                  })()}
+
+                  {hasKeyGate && (
+                    <div
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-[9px] font-bold max-w-full ${
+                        isKeyUnlocked
+                          ? "text-emerald-600 bg-emerald-50 border-emerald-200"
+                          : KEY_TIER_META[ext.requiredKeyTier!].badge
+                      }`}
+                    >
+                      {isKeyUnlocked ? <Unlock className="w-3 h-3 flex-shrink-0" /> : <Lock className="w-3 h-3 flex-shrink-0" />}
+                      <span className="truncate">
+                        {isKeyUnlocked
+                          ? "Đã mở khoá"
+                          : `${KEY_TIER_META[ext.requiredKeyTier!].emoji} Cần Khoá ${KEY_TIER_META[ext.requiredKeyTier!].label}`}
+                      </span>
+                    </div>
+                  )}
+                </div>
 
                 {/* Tag Capsules */}
                 <div className="flex flex-wrap gap-1 justify-center mb-4">
@@ -946,78 +948,80 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                 const ext = selectedCharacter as CharacterExt;
                 const hasKeyGate = !!ext.requiredKeyTier;
 
-                // --- Ưu tiên hiện khối Key Gate nếu nhân vật này yêu cầu khoá ---
-                if (hasKeyGate) {
-                  const tier = ext.requiredKeyTier!;
-                  const meta = KEY_TIER_META[tier];
-                  const isUnlocked = unlockedIds.includes(selectedCharacter.id);
-                  const availableCount = userKeys[tier] || 0;
-
-                  return (
-                    <div className={`rounded-2xl border p-4 mb-4 ${isUnlocked ? "border-emerald-200 bg-emerald-50/60" : meta.badge}`}>
-                      {isUnlocked ? (
-                        <div className="flex flex-col gap-2 items-center text-center">
-                          <span className="text-xs font-bold text-emerald-700">
-                            🎉 Đã mở khoá bằng {meta.emoji} Khoá {meta.label}
-                          </span>
-                          {ext.unlockRewardLink && (
-                            <a
-                              href={ext.unlockRewardLink}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-full text-xs font-bold flex items-center gap-1.5 transition-colors"
-                            >
-                              <ExternalLink className="w-3.5 h-3.5" />
-                              Nhận Link Ngay
-                            </a>
+                return (
+                  <>
+                    {/* Trạng Thái tiến độ sáng tác nhân vật - LUÔN hiện nếu có, độc lập với hệ khoá */}
+                    {ext.status && (() => {
+                      const meta = CHARACTER_STATUS_META[ext.status!];
+                      const Icon = meta.icon;
+                      return (
+                        <div
+                          className={`self-center md:self-start inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[10px] font-bold mb-3 ${meta.badge}`}
+                        >
+                          <Icon className="w-3 h-3" />
+                          <span>{meta.label}</span>
+                          {ext.status === "locked" && ext.statusReason && (
+                            <span className="font-normal italic opacity-80">· {ext.statusReason}</span>
                           )}
                         </div>
-                      ) : (
-                        <div className="flex flex-col gap-2 items-center text-center">
-                          <span className="text-xs font-bold">
-                            {meta.emoji} Cần Khoá {meta.label} để mở khoá nhân vật này
-                          </span>
-                          <span className="text-[10px] opacity-80">
-                            Bạn đang có: {availableCount} Khoá {meta.label}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => handleUnlockWithKey(selectedCharacter)}
-                            disabled={availableCount < 1 || unlockingId === selectedCharacter.id}
-                            className="px-4 py-2 bg-purple-500 hover:bg-purple-600 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-full text-xs font-bold flex items-center gap-1.5 transition-colors"
-                          >
-                            <Unlock className="w-3.5 h-3.5" />
-                            {unlockingId === selectedCharacter.id ? "Đang mở..." : "Dùng Khoá Mở Khoá"}
-                          </button>
-                          {availableCount < 1 && (
-                            <span className="text-[10px] opacity-70 italic">
-                              Giữ chuỗi Manifest {meta.threshold} ngày rồi đổi khoá ở trang Manifest nhé!
-                            </span>
+                      );
+                    })()}
+
+                    {/* Yêu Cầu Chìa Khoá - hiện thêm nếu nhân vật này có gắn key gate */}
+                    {hasKeyGate && (() => {
+                      const tier = ext.requiredKeyTier!;
+                      const meta = KEY_TIER_META[tier];
+                      const isUnlocked = unlockedIds.includes(selectedCharacter.id);
+                      const availableCount = userKeys[tier] || 0;
+
+                      return (
+                        <div className={`rounded-2xl border p-4 mb-4 ${isUnlocked ? "border-emerald-200 bg-emerald-50/60" : meta.badge}`}>
+                          {isUnlocked ? (
+                            <div className="flex flex-col gap-2 items-center text-center">
+                              <span className="text-xs font-bold text-emerald-700">
+                                🎉 Đã mở khoá bằng {meta.emoji} Khoá {meta.label}
+                              </span>
+                              {ext.unlockRewardLink && (
+                                <a
+                                  href={ext.unlockRewardLink}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-full text-xs font-bold flex items-center gap-1.5 transition-colors"
+                                >
+                                  <ExternalLink className="w-3.5 h-3.5" />
+                                  Nhận Link Ngay
+                                </a>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="flex flex-col gap-2 items-center text-center">
+                              <span className="text-xs font-bold">
+                                {meta.emoji} Cần Khoá {meta.label} để mở khoá nhân vật này
+                              </span>
+                              <span className="text-[10px] opacity-80">
+                                Bạn đang có: {availableCount} Khoá {meta.label}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleUnlockWithKey(selectedCharacter)}
+                                disabled={availableCount < 1 || unlockingId === selectedCharacter.id}
+                                className="px-4 py-2 bg-purple-500 hover:bg-purple-600 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-full text-xs font-bold flex items-center gap-1.5 transition-colors"
+                              >
+                                <Unlock className="w-3.5 h-3.5" />
+                                {unlockingId === selectedCharacter.id ? "Đang mở..." : "Dùng Khoá Mở Khoá"}
+                              </button>
+                              {availableCount < 1 && (
+                                <span className="text-[10px] opacity-70 italic">
+                                  Giữ chuỗi Manifest {meta.threshold} ngày rồi đổi khoá ở trang Manifest nhé!
+                                </span>
+                              )}
+                            </div>
                           )}
                         </div>
-                      )}
-                    </div>
-                  );
-                }
-
-                // --- Nếu không có key gate, hiện Trạng Thái tiến độ thủ công như cũ ---
-                if (ext.status) {
-                  const meta = CHARACTER_STATUS_META[ext.status];
-                  const Icon = meta.icon;
-                  return (
-                    <div
-                      className={`self-center md:self-start inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[10px] font-bold mb-4 ${meta.badge}`}
-                    >
-                      <Icon className="w-3 h-3" />
-                      <span>{meta.label}</span>
-                      {ext.status === "locked" && ext.statusReason && (
-                        <span className="font-normal italic opacity-80">· {ext.statusReason}</span>
-                      )}
-                    </div>
-                  );
-                }
-
-                return null;
+                      );
+                    })()}
+                  </>
+                );
               })()}
 
               <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
