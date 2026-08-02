@@ -1,4 +1,26 @@
-export type TabType = "home" | "characters" | "confession" | "notes" | "manifestation" | "socials";
+export type TabType = "home" | "characters" | "confession" | "notes" | "manifestation" | "garden" | "socials";
+
+// --- CÁC TYPE CHO TÍNH NĂNG VƯỜN HOA ---
+export type KeyTier = "bronze" | "silver" | "gold" | "diamond";
+
+export interface UserKeys {
+  bronze: number;
+  silver: number;
+  gold: number;
+  diamond: number;
+}
+
+export interface GardenPlotState {
+  seedType: "common" | "rare" | "epic";
+  plantedAt: number; // Lưu timestamp lúc gieo hạt
+}
+
+export interface GardenState {
+  commonPlot: GardenPlotState | null;
+  shopPlots: (GardenPlotState | null)[];
+  lastFreeSeedDate: string; // Format: "YYYY-MM-DD"
+}
+// ----------------------------------------
 
 export interface ManifestEntry {
   wish: string;
@@ -15,6 +37,12 @@ export interface UserProfile {
   uid?: string;
   id?: string;
   createdAt?: any;
+  
+  // Các trường dữ liệu dành cho Sổ Tay Trồng Hoa
+  petals?: number; // Số lượng cánh hoa đang có
+  garden?: GardenState; // Trạng thái vườn hiện tại (các chậu cây)
+  keys?: UserKeys; // Số lượng từng loại chìa khóa thu thập được
+  streak?: number; // Đồng bộ streak nhận được từ vườn hoa
 }
 
 export interface StoryArc {
