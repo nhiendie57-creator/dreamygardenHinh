@@ -14,6 +14,7 @@ import Manifestation from "./components/Manifestation";
 import Hero from "./components/Hero";
 import CharacterSection from "./components/CharacterSection";
 import ConfessionNotes from "./components/ConfessionNotes";
+import FlowerGardenSection from "./components/FlowerGardenSection"; // Thêm import Vườn Hoa
 import Socials from "./components/Socials";
 
 interface Toast {
@@ -161,7 +162,7 @@ export default function App() {
               )}
               {activeTab === "confession" && (
                 <ConfessionNotes
-                  type="confession" // Đã thêm prop type vào đây để tương thích với component
+                  type="confession"
                   currentUser={currentUser}
                   isAdmin={isAdmin}
                   showToast={showToast}
@@ -169,7 +170,7 @@ export default function App() {
               )}
               {activeTab === "notes" && (
                 <ConfessionNotes
-                  type="notes" // Đã thêm prop type vào đây để tương thích với component
+                  type="notes"
                   currentUser={currentUser}
                   isAdmin={isAdmin}
                   showToast={showToast}
@@ -177,6 +178,14 @@ export default function App() {
               )}
               {activeTab === "manifestation" && (
                 <Manifestation
+                  currentUser={currentUser}
+                  onUpdateUser={handleUpdateUser}
+                  showToast={showToast}
+                />
+              )}
+              {/* Thêm phần hiển thị component FlowerGardenSection khi bấm vào tab Vườn Hoa */}
+              {activeTab === "garden" && (
+                <FlowerGardenSection
                   currentUser={currentUser}
                   onUpdateUser={handleUpdateUser}
                   showToast={showToast}
