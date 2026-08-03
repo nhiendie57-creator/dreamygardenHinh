@@ -3,7 +3,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { db } from "./config/firebase";
 import { UserProfile, TabType } from "./types";
 import { motion, AnimatePresence } from "motion/react";
-import { AlertCircle, CheckCircle, Info, ShieldCheck } from "lucide-react";
+import { AlertCircle, CheckCircle, Info } from "lucide-react";
 
 // Components
 import BackgroundOverlay from "./components/BackgroundOverlay";
@@ -14,7 +14,7 @@ import Manifestation from "./components/Manifestation";
 import Hero from "./components/Hero";
 import CharacterSection from "./components/CharacterSection";
 import ConfessionNotes from "./components/ConfessionNotes";
-import FlowerGardenSection from "./components/FlowerGardenSection"; // Thêm import Vườn Hoa
+import FlowerGardenSection from "./components/FlowerGardenSection";
 import Socials from "./components/Socials";
 
 interface Toast {
@@ -30,7 +30,6 @@ export default function App() {
   const [customBgUrl, setCustomBgUrl] = useState<string | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  // Show customized floating toast bubbles
   const showToast = (message: string, type: "success" | "error" | "info" = "info") => {
     const id = Date.now() + Math.random();
     setToasts((prev) => [...prev, { id, message, type }]);
@@ -39,7 +38,6 @@ export default function App() {
     }, 4000);
   };
 
-  // Lấy dữ liệu ảnh nền từ Firestore 1 lần duy nhất lúc khởi động app
   useEffect(() => {
     const fetchBackground = async () => {
       try {
@@ -77,10 +75,8 @@ export default function App() {
 
   return (
     <div className="relative min-h-screen w-full select-none overflow-x-hidden flex flex-col font-sans-dreamy">
-      {/* 1. Layer base interactive celestial background overlay */}
       <BackgroundOverlay customBgUrl={customBgUrl} />
 
-      {/* 3. Global Glassmorphism Toast Floating Notification Container */}
       <div className="fixed top-24 right-6 z-[9999] flex flex-col gap-2 max-w-sm w-full pointer-events-none">
         <AnimatePresence>
           {toasts.map((t) => (
@@ -101,7 +97,6 @@ export default function App() {
         </AnimatePresence>
       </div>
 
-      {/* 3. Active Admin badge - đặt gọn ở góc phải dưới Navbar, không che navbar hay nội dung */}
       {isAdmin && (
         <div className="fixed top-20 right-4 z-30 pointer-events-none">
           <motion.div
@@ -117,9 +112,7 @@ export default function App() {
         </div>
       )}
 
-      {/* 4. Core Interface Shell components */}
       <div className="flex-1 flex flex-col w-full relative min-h-screen">
-        {/* Fixed Layout Modules */}
         <AuthPanel
           currentUser={currentUser}
           isAdmin={isAdmin}
@@ -132,7 +125,6 @@ export default function App() {
 
         <MusicPlayer isAdmin={isAdmin} showToast={showToast} />
 
-        {/* Dynamic view tabs switcher with elegant container structure */}
         <main className="flex-1 flex items-center justify-center pt-28 pb-32">
           <AnimatePresence mode="wait">
             <motion.div
@@ -162,15 +154,6 @@ export default function App() {
               )}
               {activeTab === "confession" && (
                 <ConfessionNotes
-                  type="confession"
-                  currentUser={currentUser}
-                  isAdmin={isAdmin}
-                  showToast={showToast}
-                />
-              )}
-              {activeTab === "notes" && (
-                <ConfessionNotes
-                  type="notes"
                   currentUser={currentUser}
                   isAdmin={isAdmin}
                   showToast={showToast}
@@ -183,7 +166,6 @@ export default function App() {
                   showToast={showToast}
                 />
               )}
-              {/* Thêm phần hiển thị component FlowerGardenSection khi bấm vào tab Vườn Hoa */}
               {activeTab === "garden" && (
                 <FlowerGardenSection
                   currentUser={currentUser}
@@ -198,7 +180,6 @@ export default function App() {
           </AnimatePresence>
         </main>
 
-        {/* Footer Copyright detail */}
         <footer className="fixed bottom-4 right-6 text-[10px] text-white-600/75 select-none font-bold tracking-wider opacity-85 hover:opacity-100 transition z-40">
           © 2026 DREAMY GARDEN by Ngữ Hinh • ALL RIGHTS RESERVED
         </footer>
