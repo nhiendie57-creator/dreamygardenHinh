@@ -244,10 +244,10 @@ export default function Manifestation({
 
       {/* Tiêu đề trang */}
       <div className="text-center mb-4">
-        <h2 className="text-3xl md:text-4xl font-bold text-indigo-900 mb-2 tracking-wide">
+        <h2 className="text-3xl md:text-4xl font-bold text-indigo-900 mb-2 tracking-wide drop-shadow-[0_0_15px_rgba(255,255,255,1)]">
           Trạm Gửi Điều Ước
         </h2>
-        <p className="text-xs md:text-sm text-indigo-800/80 italic max-w-md mx-auto font-medium">
+        <p className="text-xs md:text-sm text-indigo-900 italic max-w-md mx-auto font-semibold drop-shadow-[0_0_10px_rgba(255,255,255,0.9)]">
           "Nơi thời gian dừng lại, để bạn gửi gắm những hy vọng nhiệm màu vào vũ trụ bao la..."
         </p>
       </div>
