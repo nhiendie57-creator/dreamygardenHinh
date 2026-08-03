@@ -58,7 +58,6 @@ interface GalleryImage {
 }
 
 // --- (4) Hệ thống Chìa Khoá — đổi từ streak Manifest (xem Manifestation.tsx), dùng để mở khoá nhân vật ---
-// NOTE: metadata này lặp lại giống hệt bên Manifestation.tsx để 2 nơi luôn khớp mốc ngày/tên gọi.
 const KEY_TIER_META: Record<
   KeyTier,
   { label: string; threshold: number; emoji: string; badge: string }
@@ -181,7 +180,6 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
       });
 
       setCharacters((prev) => {
-          // Lọc trùng lặp để đảm bảo an toàn khi render
           const existingIds = new Set(prev.map(c => c.id));
           const uniqueNewList = newList.filter(c => !existingIds.has(c.id));
           return [...prev, ...uniqueNewList];
@@ -195,11 +193,10 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
       }
     } catch (err) {
       console.error(err);
-    } finally {
+    } fontally {
       setLoadingMore(false);
     }
   };
-
 
   // Collect all unique tags
   const allTags = ["All", ...Array.from(new Set(characters.flatMap((c) => c.tags)))];
@@ -244,7 +241,6 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
         });
       }
       
-      // Tối ưu UI: Cộng tim trực tiếp trên giao diện không cần chờ tải lại data
       setCharacters((prev) =>
         prev.map((c) => (c.id === character.id ? { ...c, likes: c.likes + 1 } : c))
       );
@@ -289,7 +285,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
     }
   };
 
-  // Thêm ảnh vào Vibe Gallery (upload Cloudinary, giữ chú thích tuỳ chọn kèm theo)
+  // Thêm ảnh vào Vibe Gallery
   const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -386,16 +382,11 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
 
       if (editingId) {
         await setDoc(doc(db, "characters", editingId), characterData, { merge: true });
-        
-        // Cập nhật state trực tiếp
         setCharacters(prev => prev.map(c => c.id === editingId ? { ...c, ...characterData, id: editingId } : c));
-        
         showToast(`Cập nhật nhân vật ${formName} thành công!`, "success");
       } else {
         const docRef = await addDoc(collection(db, "characters"), characterData);
-        // Cập nhật state trực tiếp cho nhân vật mới (thêm vào đầu danh sách)
         setCharacters(prev => [{ id: docRef.id, ...characterData } as Character, ...prev]);
-        
         showToast(`Gieo mầm nhân vật ${formName} thành công! 🌱`, "success");
       }
 
@@ -427,7 +418,6 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
     if (window.confirm(`Bạn có chắc chắn muốn xóa nhân vật ${name}?`)) {
       try {
         await deleteDoc(doc(db, "characters", id));
-        // Xóa khỏi state hiện tại
         setCharacters(prev => prev.filter(c => c.id !== id));
         showToast(`Đã xóa nhân vật ${name}.`, "info");
       } catch (err) {
@@ -501,7 +491,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
     }
   };
 
-  // [CHỈ ADMIN] Cấp thẳng 1 khoá để test, không cần cày streak thật
+  // [CHỈ ADMIN] Cấp thẳng 1 khoá để test
   const handleAdminGrantKey = async (tier: KeyTier) => {
     if (!currentUser || !isAdmin) return;
 
@@ -670,7 +660,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                 )}
               </div>
 
-              {/* ---- (4) Yêu cầu Chìa Khoá để mở khoá (key economy) ---- */}
+              {/* ---- (4) Yêu cầu Chìa Khoá để mở khoá ---- */}
               <div className="col-span-1 md:col-span-2 flex flex-col gap-2 pt-3 border-t border-pink-100">
                 <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
                   <Lock className="w-3.5 h-3.5 text-purple-400" />
@@ -700,7 +690,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                 )}
               </div>
 
-              {/* ---- (2) Mạch truyện bổ sung (ngoại truyện) - phần riêng biệt ---- */}
+              {/* ---- (2) Mạch truyện bổ sung ---- */}
               <div className="col-span-1 md:col-span-2 flex flex-col gap-2 pt-3 border-t border-pink-100">
                 <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
                   <BookOpen className="w-3.5 h-3.5 text-purple-400" />
@@ -755,7 +745,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                 )}
               </div>
 
-              {/* ---- (3) Vibe Gallery - bộ ảnh phong cách Instagram ---- */}
+              {/* ---- (3) Vibe Gallery ---- */}
               <div className="col-span-1 md:col-span-2 flex flex-col gap-2 pt-3 border-t border-pink-100">
                 <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
                   <Images className="w-3.5 h-3.5 text-purple-400" />
@@ -857,7 +847,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
         )}
       </AnimatePresence>
 
-      {/* Filter Tags (Horizontal, hide scrollbar) */}
+      {/* Filter Tags */}
       <div
         id="filter-tags-container"
         className="w-full overflow-x-auto hide-scrollbar flex gap-2 pb-2 border-b border-white/20"
@@ -896,7 +886,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                 className="relative p-6 rounded-[32px] glass-panel hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 flex flex-col items-center text-center group"
               >
 
-                {/* Admin actions (Edit/Delete icons) */}
+                {/* Admin actions */}
                 {isAdmin && (
                   <div className="absolute top-4 right-4 flex gap-1.5 z-10">
                     <button
@@ -916,7 +906,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                   </div>
                 )}
 
-                {/* Avatar with Wavy Gradient liquid border rotating continually */}
+                {/* Avatar */}
                 <div className="relative w-32 h-32 mb-4 select-none">
                   <div className="absolute -inset-1.5 rounded-full bg-gradient-to-tr from-green-300 via-pink-300 to-purple-300 blur-sm animate-wave-rotate opacity-75" />
                   <div className="absolute -inset-1 rounded-full liquid-border opacity-90" />
@@ -938,7 +928,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                   {char.role}
                 </p>
 
-                {/* Badge: hiện CẢ Trạng Thái tiến độ VÀ Yêu Cầu Khoá cùng lúc - 2 khái niệm khác nhau */}
+                {/* Badge */}
                 <div className="flex flex-col items-center gap-1.5 mb-3 max-w-full">
                   {ext.status && (() => {
                     const meta = CHARACTER_STATUS_META[ext.status!];
@@ -983,7 +973,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                   ))}
                 </div>
 
-                {/* Footer Controls with Interactive Bouncy heart liking */}
+                {/* Footer Controls */}
                 <div className="flex w-full justify-between items-center mt-auto pt-3 border-t border-white/20">
                   <button
                     onClick={() => setSelectedCharacter(char)}
@@ -1013,31 +1003,23 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
         </AnimatePresence>
       </div>
 
-            {/* Nút Xem Thêm Đặt Dưới Cùng (Style Ombre Xanh Tím Pastel) */}
+      {/* (2) Nút Xem Thêm Đặt Dưới Cùng — Đã đổi style đồng bộ Gradient Hồng-Tím với nút Gieo mầm */}
       {hasMore && (
         <div className="w-full flex justify-center mt-8 mb-4 z-10">
           <button
             onClick={handleLoadMore}
             disabled={loadingMore}
-            className="relative px-8 py-3 rounded-full font-bold text-indigo-800 transition-all duration-300 flex items-center gap-2 overflow-hidden group shadow-[0_4px_15px_rgba(167,139,250,0.3)] hover:shadow-[0_6px_25px_rgba(167,139,250,0.5)] hover:-translate-y-1"
+            className="px-6 py-2.5 bg-gradient-to-r from-pink-400 to-purple-400 hover:from-pink-500 hover:to-purple-500 text-white rounded-full text-xs font-bold shadow-md hover:scale-105 active:scale-95 transition-all flex items-center gap-2 disabled:opacity-50"
           >
-            {/* Lớp nền Khung ombre xanh tím pastel */}
-            <div className="absolute inset-0 bg-gradient-to-r from-cyan-200 via-blue-200 to-purple-300 opacity-80 group-hover:opacity-100 transition-opacity duration-300 backdrop-blur-md" />
-            
-            {/* Lớp viền mỏng tạo hiệu ứng kính (glassmorphism) */}
-            <div className="absolute inset-0 rounded-full border border-white/60" />
-
-            {/* Nội dung chữ và icon */}
-            <span className="relative z-10 flex items-center gap-2 tracking-wide text-sm">
-              {loadingMore ? (
-                <><Loader2 className="w-4 h-4 animate-spin text-indigo-600" /> Đang gõ cửa khu rừng...</>
-              ) : (
-                "Xem thêm nhân vật ✨"
-              )}
-            </span>
+            {loadingMore ? (
+              <><Loader2 className="w-4 h-4 animate-spin text-white" /> Đang gõ cửa khu rừng...</>
+            ) : (
+              "Xem thêm nhân vật ✨"
+            )}
           </button>
         </div>
       )}
+
       {/* Character Detail Popup Modal */}
       <AnimatePresence>
         {selectedCharacter && (
@@ -1069,7 +1051,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
 
                 return (
                   <>
-                    {/* Trạng Thái tiến độ sáng tác nhân vật - LUÔN hiện nếu có, độc lập với hệ khoá */}
+                    {/* Trạng Thái tiến độ sáng tác nhân vật */}
                     {ext.status && (() => {
                       const meta = CHARACTER_STATUS_META[ext.status!];
                       const Icon = meta.icon;
@@ -1086,7 +1068,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                       );
                     })()}
 
-                    {/* Yêu Cầu Chìa Khoá - hiện thêm nếu nhân vật này có gắn key gate */}
+                    {/* Yêu Cầu Chìa Khoá */}
                     {hasKeyGate && (() => {
                       const tier = ext.requiredKeyTier!;
                       const meta = KEY_TIER_META[tier];
@@ -1120,6 +1102,8 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                               <span className="text-[10px] opacity-80">
                                 Bạn đang có: {availableCount} Khoá {meta.label}
                               </span>
+
+                              {/* (1) Đã đổi nút từ "Dùng Khoá Mở Khoá" thành "Mở bằng Key [Tên Key]" */}
                               <button
                                 type="button"
                                 onClick={() => handleUnlockWithKey(selectedCharacter)}
@@ -1127,8 +1111,9 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                                 className="px-4 py-2 bg-purple-500 hover:bg-purple-600 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-full text-xs font-bold flex items-center gap-1.5 transition-colors"
                               >
                                 <Unlock className="w-3.5 h-3.5" />
-                                {unlockingId === selectedCharacter.id ? "Đang mở..." : "Dùng Khoá Mở Khoá"}
+                                {unlockingId === selectedCharacter.id ? "Đang mở..." : `Mở bằng Key ${meta.label}`}
                               </button>
+
                               {availableCount < 1 && (
                                 <span className="text-[10px] opacity-70 italic">
                                   Giữ chuỗi Manifest {meta.threshold} ngày rồi đổi khoá ở trang Manifest nhé!
@@ -1189,7 +1174,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                 </div>
               </div>
 
-              {/* (3) Vibe Board — đặt NGAY dưới avatar/tên, TRƯỚC Tiểu Sử, dạng bento moodboard */}
+              {/* Vibe Board */}
               {(selectedCharacter as CharacterExt).gallery &&
                 (selectedCharacter as CharacterExt).gallery!.length > 0 && (
                   <div className="mt-6 pt-5 border-t border-pink-100">
@@ -1215,7 +1200,6 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                               className="w-full h-full object-cover"
                               referrerPolicy="no-referrer"
                             />
-                            {/* Overlay gradient + caption chỉ hiện khi hover */}
                             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                             {img.caption && (
                               <span className="absolute bottom-2 left-2.5 right-2.5 text-[9px] text-white font-semibold opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0 transition-all duration-300 drop-shadow-md line-clamp-1">
@@ -1229,7 +1213,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                   </div>
                 )}
 
-              {/* Detailed Plot (Cốt truyện phiêu lưu) — giờ nằm SAU Vibe Board */}
+              {/* Detailed Plot */}
               <div className="mt-6 pt-5 border-t border-pink-100 text-slate-700">
                 <h4 className="text-xs uppercase tracking-widest font-bold text-slate-500 mb-2">
                   PLOT: cốt truyện chính
@@ -1239,7 +1223,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                 </div>
               </div>
 
-              {/* (2) Mạch Truyện Bổ Sung (Ngoại truyện) - ngay dưới Tiểu Sử, không có trạng thái riêng */}
+              {/* Mạch Truyện Bổ Sung */}
               {(selectedCharacter as CharacterExt).storyArcs &&
                 (selectedCharacter as CharacterExt).storyArcs!.length > 0 && (
                   <div className="mt-6 pt-5 border-t border-pink-100 text-slate-700">
@@ -1320,7 +1304,6 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                     })}
                   </div>
 
-                  {/* [CHỈ ADMIN] Khối cấp khoá test, không cần cày streak thật */}
                   {isAdmin && (
                     <div className="mt-5 pt-4 border-t border-dashed border-purple-200">
                       <h4 className="text-xs font-bold text-purple-600 mb-1 flex items-center gap-1.5">
