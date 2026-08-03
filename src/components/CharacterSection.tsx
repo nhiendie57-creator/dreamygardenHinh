@@ -193,7 +193,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
       }
     } catch (err) {
       console.error(err);
-    } fontally {
+    } finally {
       setLoadingMore(false);
     }
   };
