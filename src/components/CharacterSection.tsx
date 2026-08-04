@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { collection, doc, onSnapshot, updateDoc, setDoc, deleteDoc, addDoc, query, orderBy, increment } from "firebase/firestore";
 import { db } from "../config/firebase";
 import { Character, UserProfile, KeyTier, UserKeys } from "../types";
-// Đã sửa lại tên thư viện chuẩn để Vercel không báo lỗi
 import { motion, AnimatePresence } from "motion/react";
 import {
   Heart, Plus, Trash2, Edit2, X, Eye, Sparkles, Upload, Save,
@@ -110,7 +109,6 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
   const [formRequiredKeyTier, setFormRequiredKeyTier] = useState<KeyTier | "">("");
   const [formUnlockRewardLink, setFormUnlockRewardLink] = useState("");
 
-  // Tự động tải Script của Widget Cloudinary xịn xò vào khi vào vườn
   useEffect(() => {
     if (!document.getElementById("cloudinary-widget-script")) {
       const script = document.createElement("script");
@@ -196,7 +194,6 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
     }
   };
 
-  // --- CÔNG CỤ CẮT ẢNH CHO AVATAR (1 Ảnh Vuông Tròn Hoàn Hảo) ---
   const handleAvatarUpload = () => {
     if (typeof window === "undefined" || !(window as any).cloudinary) {
       showToast("Công cụ nghệ thuật đang tải, chị đợi đệ vài giây nhé! ☁", "info");
@@ -209,9 +206,9 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
         uploadPreset: "dreamy_garden_preset",
         sources: ["local", "url", "camera"],
         multiple: false,
-        cropping: true, // Ép cắt ảnh thủ công
-        croppingAspectRatio: 1, // Buộc cắt hình vuông để avatar hiển thị tròn tuyệt đối
-        showSkipCropButton: false, 
+        cropping: true,
+        croppingAspectRatio: 1,
+        showSkipCropButton: false,
       },
       (error: any, result: any) => {
         if (!error && result && result.event === "success") {
@@ -222,7 +219,6 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
     ).open();
   };
 
-  // --- CÔNG CỤ CẮT ẢNH CHO VIBE GALLERY (Nhiều Ảnh + Cắt Thủ Công) ---
   const handleGalleryUpload = () => {
     if (typeof window === "undefined" || !(window as any).cloudinary) {
       showToast("Công cụ nghệ thuật đang tải, chị đợi đệ vài giây nhé! ☁", "info");
@@ -234,10 +230,10 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
         cloudName: "i7upt5gk",
         uploadPreset: "dreamy_garden_preset",
         sources: ["local", "url", "camera"],
-        multiple: true, // Cho phép chọn up cực nhiều ảnh
-        cropping: true, // Hiện bảng cắt từng tấm để canh trúng vật chủ
-        croppingAspectRatio: 1, // Ép cắt vuông để grid Vibe Board ko bị méo
-        showSkipCropButton: true, // Có thể bỏ qua nếu ảnh gốc đã ưng ý
+        multiple: true,
+        cropping: true,
+        croppingAspectRatio: 1,
+        showSkipCropButton: true,
       },
       (error: any, result: any) => {
         if (!error && result && result.event === "success") {
@@ -281,6 +277,8 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
 
     try {
       const parsedTags = formTags.split(",").map((t) => t.trim()).filter((t) => t.length > 0);
+      
+      // Đệ đã XÓA field createdAt ở đây để lúc update nó không bị chèn lên thời gian mới nhất!
       const characterData = {
         name: formName.trim(),
         role: formRole.trim(),
@@ -294,14 +292,19 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
         gallery: formGallery,
         requiredKeyTier: formRequiredKeyTier || null,
         unlockRewardLink: formRequiredKeyTier ? formUnlockRewardLink.trim() : "",
-        createdAt: new Date().toISOString(),
       };
 
       if (editingId) {
+        // Chỉ lưu thông tin sửa, giữ nguyên createdAt cũ -> Không bị nhảy lên đầu trang
         await setDoc(doc(db, "characters", editingId), characterData, { merge: true });
         showToast(`Cập nhật nhân vật ${formName} thành công!`, "success");
       } else {
-        await addDoc(collection(db, "characters"), characterData);
+        // Tạo mới thì mới cấp cho thời gian hiện tại
+        const newCharacterData = {
+          ...characterData,
+          createdAt: new Date().toISOString(),
+        };
+        await addDoc(collection(db, "characters"), newCharacterData);
         showToast(`Gieo mầm nhân vật ${formName} thành công! 🌱`, "success");
       }
 
@@ -356,7 +359,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
     setGalleryCaption("");
     setFormRequiredKeyTier(ext.requiredKeyTier || "");
     setFormUnlockRewardLink(ext.unlockRewardLink || "");
-    setShowForm(true);
+    setShowForm(true); // Pop-up sẽ tự động hiện ra
   };
 
   const handleUnlockWithKey = async (character: Character) => {
@@ -447,279 +450,6 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
           )}
         </div>
       </div>
-
-      <AnimatePresence>
-        {showForm && isAdmin && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="p-6 rounded-[32px] glass-panel border border-pink-200 shadow-xl max-w-2xl mx-auto w-full text-slate-800"
-          >
-            <form onSubmit={handleSaveCharacter} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="col-span-1 md:col-span-2 text-center border-b border-pink-100 pb-3">
-                <h3 className="text-lg font-bold text-pink-600 flex items-center justify-center gap-1.5 font-display">
-                  🌸 {editingId ? "Hiệu Chỉnh Nhân Vật" : "Tạo Nhân Vật Mới"}
-                </h3>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-slate-600">Tên Nhân Vật</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ví dụ: Aria Moonlight"
-                  value={formName}
-                  onChange={(e) => setFormName(e.target.value)}
-                  className="bg-white/50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-slate-600">Danh Hiệu / Vai Trò</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ví dụ: Guardian of soft dreams"
-                  value={formRole}
-                  onChange={(e) => setFormRole(e.target.value)}
-                  className="bg-white/50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-slate-600">Thẻ Nhận Diện (ngăn cách bằng dấu phẩy)</label>
-                <input
-                  type="text"
-                  placeholder="Ví dụ: Luna, Whisper, Dream"
-                  value={formTags}
-                  onChange={(e) => setFormTags(e.target.value)}
-                  className="bg-white/50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5 relative">
-                <label className="text-xs font-bold text-slate-600">Avatar đại diện (cắt tỉa khung tròn)</label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="URL ảnh hoặc tải lên file"
-                    value={formAvatar}
-                    onChange={(e) => setFormAvatar(e.target.value)}
-                    className="bg-white/50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white flex-1"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAvatarUpload}
-                    className="bg-pink-100 hover:bg-pink-200 text-pink-700 px-3 py-2 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1 shadow-sm"
-                  >
-                    <Upload className="w-3.5 h-3.5" />
-                    Tải & Cắt ảnh
-                  </button>
-                </div>
-              </div>
-
-              <div className="col-span-1 md:col-span-2 flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-slate-600">Cốt truyện phiêu lưu (Plot)</label>
-                <textarea
-                  required
-                  rows={4}
-                  placeholder="Kể chi tiết về câu chuyện, tiểu sử kỳ diệu của nhân vật..."
-                  value={formPlot}
-                  onChange={(e) => setFormPlot(e.target.value)}
-                  className="bg-white/50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white resize-none"
-                />
-              </div>
-
-              {/* Trạng Thái Tiến Độ */}
-              <div className="col-span-1 md:col-span-2 flex flex-col gap-2 pt-3 border-t border-pink-100">
-                <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5 text-purple-400" />
-                  Trạng Thái Tiến Độ Nhân Vật
-                </label>
-                <select
-                  value={formStatus}
-                  onChange={(e) => setFormStatus(e.target.value as CharacterStatus)}
-                  className="bg-white/50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white"
-                >
-                  <option value="in-progress">Đang tiến hành</option>
-                  <option value="unlocked">Đã hoàn thành</option>
-                  <option value="locked">Đã khoá</option>
-                </select>
-
-                {formStatus === "locked" && (
-                  <input
-                    type="text"
-                    placeholder="Lý do khoá (ví dụ: chưa đủ điều kiện mở khoá...)"
-                    value={formStatusReason}
-                    onChange={(e) => setFormStatusReason(e.target.value)}
-                    className="bg-white/50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white"
-                  />
-                )}
-              </div>
-
-              {/* Yêu Cầu Key */}
-              <div className="col-span-1 md:col-span-2 flex flex-col gap-2 pt-3 border-t border-pink-100">
-                <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
-                  <Lock className="w-3.5 h-3.5 text-purple-400" />
-                  Yêu Cầu Key Để Mở (tuỳ chọn)
-                </label>
-                <select
-                  value={formRequiredKeyTier}
-                  onChange={(e) => setFormRequiredKeyTier(e.target.value as KeyTier | "")}
-                  className="bg-white/50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white"
-                >
-                  <option value="">Không yêu cầu (dùng Trạng Thái phía trên)</option>
-                  {KEY_TIER_ORDER.map((tier) => (
-                    <option key={tier} value={tier}>
-                      {KEY_TIER_META[tier].emoji} Key {KEY_TIER_META[tier].label} ({KEY_TIER_META[tier].threshold} ngày streak)
-                    </option>
-                  ))}
-                </select>
-
-                {formRequiredKeyTier && (
-                  <input
-                    type="text"
-                    placeholder="Link phần thưởng (Discord/Drive/...) khi user dùng Key mở khoá"
-                    value={formUnlockRewardLink}
-                    onChange={(e) => setFormUnlockRewardLink(e.target.value)}
-                    className="bg-white/50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white"
-                  />
-                )}
-              </div>
-
-              {/* Mạch Truyện Ngoại Truyện */}
-              <div className="col-span-1 md:col-span-2 flex flex-col gap-2 pt-3 border-t border-pink-100">
-                <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
-                  <BookOpen className="w-3.5 h-3.5 text-purple-400" />
-                  Mạch Truyện Bổ Sung (Ngoại truyện)
-                </label>
-
-                <input
-                  type="text"
-                  placeholder="Tên mạch truyện / ngoại truyện"
-                  value={arcTitle}
-                  onChange={(e) => setArcTitle(e.target.value)}
-                  className="bg-white/50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white"
-                />
-                <textarea
-                  rows={3}
-                  placeholder="Nội dung ngoại truyện..."
-                  value={arcContent}
-                  onChange={(e) => setArcContent(e.target.value)}
-                  className="bg-white/50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white resize-none"
-                />
-                <button
-                  type="button"
-                  onClick={handleAddStoryArc}
-                  className="self-start px-3 py-1.5 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-xl text-xs font-bold transition-colors flex items-center gap-1"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  Thêm mạch truyện
-                </button>
-
-                {formStoryArcs.length > 0 && (
-                  <div className="flex flex-col gap-1.5 mt-1">
-                    {formStoryArcs.map((arc) => (
-                      <div key={arc.id} className="flex items-start gap-2 px-3 py-2 rounded-xl border border-purple-100 bg-purple-50/50 text-[11px]">
-                        <BookOpen className="w-3 h-3 flex-shrink-0 mt-0.5 text-purple-400" />
-                        <div className="flex-1">
-                          <p className="font-bold text-slate-700">{arc.title}</p>
-                          <p className="text-slate-500 line-clamp-2">{arc.content}</p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveStoryArc(arc.id)}
-                          className="hover:scale-110 transition-transform text-slate-400 hover:text-rose-500"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Vibe Gallery */}
-              <div className="col-span-1 md:col-span-2 flex flex-col gap-2 pt-3 border-t border-pink-100">
-                <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
-                  <Images className="w-3.5 h-3.5 text-purple-400" />
-                  Vibe Gallery (Bộ Ảnh Phong Cách)
-                </label>
-
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Chú thích chung cho các ảnh chuẩn bị up (tuỳ chọn)"
-                    value={galleryCaption}
-                    onChange={(e) => setGalleryCaption(e.target.value)}
-                    className="bg-white/50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white flex-1"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleGalleryUpload}
-                    className="bg-pink-100 hover:bg-pink-200 text-pink-700 px-3 py-2 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1 whitespace-nowrap shadow-sm"
-                  >
-                    <Upload className="w-3.5 h-3.5" />
-                    Thêm nhiều ảnh & Cắt
-                  </button>
-                </div>
-
-                {formGallery.length > 0 && (
-                  <div className="grid grid-cols-4 gap-2 mt-1">
-                    {formGallery.map((img) => (
-                      <div key={img.id} className="relative aspect-square rounded-lg overflow-hidden border border-pink-200 group">
-                        <img
-                          src={img.url}
-                          alt={img.caption || "vibe"}
-                          className="w-full h-full object-cover"
-                          referrerPolicy="no-referrer"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveGalleryImage(img.id)}
-                          className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-                        >
-                          <Trash2 className="w-4 h-4 text-white" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {formAvatar && (
-                <div className="col-span-1 md:col-span-2 flex flex-col items-center justify-center gap-1.5">
-                  <span className="text-[10px] uppercase font-bold text-slate-500">Preview Avatar</span>
-                  <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-pink-300">
-                    <img src={formAvatar} alt="preview" className="w-full h-full object-cover" />
-                  </div>
-                </div>
-              )}
-
-              <div className="col-span-1 md:col-span-2 flex gap-3 justify-end mt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowForm(false);
-                    setEditingId(null);
-                  }}
-                  className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition-all"
-                >
-                  Hủy bỏ
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-gradient-to-r from-pink-400 to-purple-400 hover:from-pink-500 hover:to-purple-500 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-md"
-                >
-                  <Save className="w-3.5 h-3.5" />
-                  Lưu Nhân Vật
-                </button>
-              </div>
-            </form>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Filter Tags */}
       <div id="filter-tags-container" className="w-full overflow-x-auto hide-scrollbar flex gap-2 pb-2 border-b border-white/20">
@@ -863,6 +593,303 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
           })}
         </AnimatePresence>
       </div>
+
+      {/* POP-UP ADMIN FORM (Đã chuyển thành Modal) */}
+      <AnimatePresence>
+        {showForm && isAdmin && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm"
+            onClick={() => {
+              setShowForm(false);
+              setEditingId(null);
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="bg-white/95 backdrop-blur-xl border border-white/60 p-6 md:p-8 rounded-[32px] shadow-2xl max-w-2xl w-full text-slate-800 relative max-h-[90vh] overflow-y-auto custom-scroll"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Nút đóng Pop-up Form */}
+              <button
+                onClick={() => {
+                  setShowForm(false);
+                  setEditingId(null);
+                }}
+                className="absolute top-5 right-5 p-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all hover:scale-110 shadow-sm"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              <form onSubmit={handleSaveCharacter} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="col-span-1 md:col-span-2 text-center border-b border-pink-100 pb-3">
+                  <h3 className="text-lg font-bold text-pink-600 flex items-center justify-center gap-1.5 font-display pr-6">
+                    🌸 {editingId ? "Hiệu Chỉnh Nhân Vật" : "Tạo Nhân Vật Mới"}
+                  </h3>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-slate-600">Tên Nhân Vật</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ví dụ: Aria Moonlight"
+                    value={formName}
+                    onChange={(e) => setFormName(e.target.value)}
+                    className="bg-slate-50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-slate-600">Danh Hiệu / Vai Trò</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ví dụ: Guardian of soft dreams"
+                    value={formRole}
+                    onChange={(e) => setFormRole(e.target.value)}
+                    className="bg-slate-50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-slate-600">Thẻ Nhận Diện (ngăn cách bằng dấu phẩy)</label>
+                  <input
+                    type="text"
+                    placeholder="Ví dụ: Luna, Whisper, Dream"
+                    value={formTags}
+                    onChange={(e) => setFormTags(e.target.value)}
+                    className="bg-slate-50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5 relative">
+                  <label className="text-xs font-bold text-slate-600">Avatar đại diện (cắt tỉa khung tròn)</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="URL ảnh hoặc tải lên file"
+                      value={formAvatar}
+                      onChange={(e) => setFormAvatar(e.target.value)}
+                      className="bg-slate-50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white flex-1"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAvatarUpload}
+                      className="bg-pink-100 hover:bg-pink-200 text-pink-700 px-3 py-2 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1 shadow-sm"
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                      Tải & Cắt ảnh
+                    </button>
+                  </div>
+                </div>
+
+                <div className="col-span-1 md:col-span-2 flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-slate-600">Cốt truyện phiêu lưu (Plot)</label>
+                  <textarea
+                    required
+                    rows={4}
+                    placeholder="Kể chi tiết về câu chuyện, tiểu sử kỳ diệu của nhân vật..."
+                    value={formPlot}
+                    onChange={(e) => setFormPlot(e.target.value)}
+                    className="bg-slate-50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white resize-none"
+                  />
+                </div>
+
+                {/* Trạng Thái Tiến Độ */}
+                <div className="col-span-1 md:col-span-2 flex flex-col gap-2 pt-3 border-t border-pink-100">
+                  <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-purple-400" />
+                    Trạng Thái Tiến Độ Nhân Vật
+                  </label>
+                  <select
+                    value={formStatus}
+                    onChange={(e) => setFormStatus(e.target.value as CharacterStatus)}
+                    className="bg-slate-50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white"
+                  >
+                    <option value="in-progress">Đang tiến hành</option>
+                    <option value="unlocked">Đã hoàn thành</option>
+                    <option value="locked">Đã khoá</option>
+                  </select>
+
+                  {formStatus === "locked" && (
+                    <input
+                      type="text"
+                      placeholder="Lý do khoá (ví dụ: chưa đủ điều kiện mở khoá...)"
+                      value={formStatusReason}
+                      onChange={(e) => setFormStatusReason(e.target.value)}
+                      className="bg-slate-50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white"
+                    />
+                  )}
+                </div>
+
+                {/* Yêu Cầu Key */}
+                <div className="col-span-1 md:col-span-2 flex flex-col gap-2 pt-3 border-t border-pink-100">
+                  <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+                    <Lock className="w-3.5 h-3.5 text-purple-400" />
+                    Yêu Cầu Key Để Mở (tuỳ chọn)
+                  </label>
+                  <select
+                    value={formRequiredKeyTier}
+                    onChange={(e) => setFormRequiredKeyTier(e.target.value as KeyTier | "")}
+                    className="bg-slate-50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white"
+                  >
+                    <option value="">Không yêu cầu (dùng Trạng Thái phía trên)</option>
+                    {KEY_TIER_ORDER.map((tier) => (
+                      <option key={tier} value={tier}>
+                        {KEY_TIER_META[tier].emoji} Key {KEY_TIER_META[tier].label} ({KEY_TIER_META[tier].threshold} ngày streak)
+                      </option>
+                    ))}
+                  </select>
+
+                  {formRequiredKeyTier && (
+                    <input
+                      type="text"
+                      placeholder="Link phần thưởng (Discord/Drive/...) khi user dùng Key mở khoá"
+                      value={formUnlockRewardLink}
+                      onChange={(e) => setFormUnlockRewardLink(e.target.value)}
+                      className="bg-slate-50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white"
+                    />
+                  )}
+                </div>
+
+                {/* Mạch Truyện Ngoại Truyện */}
+                <div className="col-span-1 md:col-span-2 flex flex-col gap-2 pt-3 border-t border-pink-100">
+                  <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+                    <BookOpen className="w-3.5 h-3.5 text-purple-400" />
+                    Mạch Truyện Bổ Sung (Ngoại truyện)
+                  </label>
+
+                  <input
+                    type="text"
+                    placeholder="Tên mạch truyện / ngoại truyện"
+                    value={arcTitle}
+                    onChange={(e) => setArcTitle(e.target.value)}
+                    className="bg-slate-50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white"
+                  />
+                  <textarea
+                    rows={3}
+                    placeholder="Nội dung ngoại truyện..."
+                    value={arcContent}
+                    onChange={(e) => setArcContent(e.target.value)}
+                    className="bg-slate-50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white resize-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddStoryArc}
+                    className="self-start px-3 py-1.5 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-xl text-xs font-bold transition-colors flex items-center gap-1"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Thêm mạch truyện
+                  </button>
+
+                  {formStoryArcs.length > 0 && (
+                    <div className="flex flex-col gap-1.5 mt-1">
+                      {formStoryArcs.map((arc) => (
+                        <div key={arc.id} className="flex items-start gap-2 px-3 py-2 rounded-xl border border-purple-100 bg-purple-50/50 text-[11px]">
+                          <BookOpen className="w-3 h-3 flex-shrink-0 mt-0.5 text-purple-400" />
+                          <div className="flex-1">
+                            <p className="font-bold text-slate-700">{arc.title}</p>
+                            <p className="text-slate-500 line-clamp-2">{arc.content}</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveStoryArc(arc.id)}
+                            className="hover:scale-110 transition-transform text-slate-400 hover:text-rose-500"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Vibe Gallery */}
+                <div className="col-span-1 md:col-span-2 flex flex-col gap-2 pt-3 border-t border-pink-100">
+                  <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+                    <Images className="w-3.5 h-3.5 text-purple-400" />
+                    Vibe Gallery (Bộ Ảnh Phong Cách)
+                  </label>
+
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Chú thích chung cho các ảnh chuẩn bị up (tuỳ chọn)"
+                      value={galleryCaption}
+                      onChange={(e) => setGalleryCaption(e.target.value)}
+                      className="bg-slate-50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white flex-1"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleGalleryUpload}
+                      className="bg-pink-100 hover:bg-pink-200 text-pink-700 px-3 py-2 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1 whitespace-nowrap shadow-sm"
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                      Thêm nhiều ảnh & Cắt
+                    </button>
+                  </div>
+
+                  {formGallery.length > 0 && (
+                    <div className="grid grid-cols-4 gap-2 mt-1">
+                      {formGallery.map((img) => (
+                        <div key={img.id} className="relative aspect-square rounded-lg overflow-hidden border border-pink-200 group">
+                          <img
+                            src={img.url}
+                            alt={img.caption || "vibe"}
+                            className="w-full h-full object-cover"
+                            referrerPolicy="no-referrer"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveGalleryImage(img.id)}
+                            className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                          >
+                            <Trash2 className="w-4 h-4 text-white" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {formAvatar && (
+                  <div className="col-span-1 md:col-span-2 flex flex-col items-center justify-center gap-1.5">
+                    <span className="text-[10px] uppercase font-bold text-slate-500">Preview Avatar</span>
+                    <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-pink-300">
+                      <img src={formAvatar} alt="preview" className="w-full h-full object-cover" />
+                    </div>
+                  </div>
+                )}
+
+                <div className="col-span-1 md:col-span-2 flex gap-3 justify-end mt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowForm(false);
+                      setEditingId(null);
+                    }}
+                    className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition-all"
+                  >
+                    Hủy bỏ
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-gradient-to-r from-pink-400 to-purple-400 hover:from-pink-500 hover:to-purple-500 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-md"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    Lưu Nhân Vật
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Character Detail Popup Modal */}
       <AnimatePresence>
