@@ -938,13 +938,11 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                   </button>
 
                   <div className="flex items-center gap-3">
-                    {/* Lượt xem — chỉ admin nhìn thấy để theo dõi độ hot, không lộ công khai */}
-                    {isAdmin && (
-                      <div className="flex items-center gap-1 text-slate-400" title="Lượt xem Chi tiết">
-                        <Eye className="w-3 h-3" />
-                        <span className="text-xs font-bold">{ext.views || 0}</span>
-                      </div>
-                    )}
+                    {/* Lượt xem — công khai cho mọi người thấy */}
+                    <div className="flex items-center gap-1 text-slate-400" title="Lượt xem Chi tiết">
+                      <Eye className="w-3 h-3" />
+                      <span className="text-xs font-bold">{ext.views || 0}</span>
+                    </div>
 
                     <div className="flex items-center gap-1.5">
                       <motion.button
