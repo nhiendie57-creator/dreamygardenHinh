@@ -181,17 +181,17 @@ export default function App() {
         </main>
 
         <footer className="fixed right-4 bottom-24 md:bottom-4 md:right-6 flex flex-col md:flex-row items-end md:items-center gap-1.5 md:gap-2 text-[9px] md:text-[10px] text-white/80 select-none font-bold tracking-wider opacity-85 hover:opacity-100 transition-all duration-300 z-50">
-  <span className="drop-shadow-md">
-    © 2026 DREAMY GARDEN by Ngữ Hinh
-  </span>
-  
-  {/* Dấu chấm tròn này chỉ hiện trên máy tính, đt ẩn đi cho gọn */}
-  <span className="hidden md:inline text-pink-300">
-    •
-  </span>
-  
-  {/* Khung màu xịn xò bao quanh chữ All Rights Reserved */}
-  <span className="bg-gradient-to-r from-pink-400/60 to-purple-400/60 text-white px-2.5 py-0.5 rounded-full border border-white/30 shadow-lg backdrop-blur-md uppercase text-[8px] md:text-[9px] tracking-widest">
-    All Rights Reserved
-  </span>
-</footer>
+          <span className="drop-shadow-md">
+            © 2026 DREAMY GARDEN by Ngữ Hinh
+          </span>
+          <span className="hidden md:inline text-pink-300">
+            •
+          </span>
+          <span className="bg-gradient-to-r from-pink-400/60 to-purple-400/60 text-white px-2.5 py-0.5 rounded-full border border-white/30 shadow-lg backdrop-blur-md uppercase text-[8px] md:text-[9px] tracking-widest">
+            All Rights Reserved
+          </span>
+        </footer>
+      </div>
+    </div>
+  );
+}
