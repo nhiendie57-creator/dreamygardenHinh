@@ -5,8 +5,8 @@ import { Character, UserProfile, KeyTier, UserKeys } from "../types";
 // Đã sửa lại tên thư viện chuẩn để Vercel không báo lỗi
 import { motion, AnimatePresence } from "motion/react";
 import {
-  Heart, Plus, Trash2, Edit2, X, Eye, Sparkles, Upload, Loader2, Save,
-  Lock, Unlock, Clock, BookOpen, Images, Maximize2, ExternalLink, Backpack,
+  Heart, Plus, Trash2, Edit2, X, Eye, Sparkles, Upload, Save,
+  Lock, Unlock, Clock, BookOpen, Images, ExternalLink, Backpack,
 } from "lucide-react";
 
 interface CharacterSectionProps {
@@ -16,7 +16,7 @@ interface CharacterSectionProps {
   showToast: (message: string, type?: "success" | "error" | "info") => void;
 }
 
-// --- (1) Trạng thái tiến độ của nhân vật (admin gán thủ công, hiển thị ngay trên profile) ---
+// --- (1) Trạng thái tiến độ của nhân vật ---
 type CharacterStatus = "in-progress" | "unlocked" | "locked";
 
 const CHARACTER_STATUS_META: Record<
@@ -43,22 +43,21 @@ const CHARACTER_STATUS_META: Record<
   },
 };
 
-// --- (2) Mạch truyện bổ sung / ngoại truyện — chỉ gồm tên + nội dung, KHÔNG có trạng thái riêng ---
+// --- (2) Mạch truyện bổ sung / ngoại truyện ---
 interface StoryArc {
   id: string;
   title: string;
   content: string;
 }
 
-// --- (3) Vibe Gallery — bộ ảnh phong cách Instagram để thể hiện "vibe" của nhân vật ---
+// --- (3) Vibe Gallery ---
 interface GalleryImage {
   id: string;
   url: string;
   caption?: string;
 }
 
-// --- (4) Hệ thống Key — đổi từ streak Manifest (xem Manifestation.tsx), dùng để mở khoá nhân vật ---
-// NOTE: metadata này lặp lại giống hệt bên Manifestation.tsx để 2 nơi luôn khớp mốc ngày/tên gọi.
+// --- (4) Hệ thống Key ---
 const KEY_TIER_META: Record<
   KeyTier,
   { label: string; threshold: number; emoji: string; badge: string }
@@ -71,7 +70,6 @@ const KEY_TIER_META: Record<
 const KEY_TIER_ORDER: KeyTier[] = ["bronze", "silver", "gold", "diamond"];
 const EMPTY_KEYS: UserKeys = { bronze: 0, silver: 0, gold: 0, diamond: 0 };
 
-// Type mở rộng CharacterExt - khớp với các field đã có trong types.ts hiện tại
 type CharacterExt = Character & {
   status?: CharacterStatus;
   statusReason?: string;
@@ -79,10 +77,9 @@ type CharacterExt = Character & {
   gallery?: GalleryImage[];
   requiredKeyTier?: KeyTier | null;
   unlockRewardLink?: string;
-  views?: number; // Lượt xem "Chi tiết" — cộng dồn qua increment(), không cần chặn trùng
+  views?: number;
 };
 
-// Đã làm trống danh sách mặc định để vườn chỉ hiện nhân vật do admin tạo
 const DEFAULT_CHARACTERS: Character[] = [];
 
 export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, showToast }: CharacterSectionProps) {
@@ -92,7 +89,6 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
   const [showInventory, setShowInventory] = useState(false);
   const [unlockingId, setUnlockingId] = useState<string | null>(null);
 
-  // Create / Edit Form State
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formName, setFormName] = useState("");
@@ -100,27 +96,32 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
   const [formPlot, setFormPlot] = useState("");
   const [formTags, setFormTags] = useState("");
   const [formAvatar, setFormAvatar] = useState("");
-  const [uploading, setUploading] = useState(false);
 
-  // (1) Trạng thái tiến độ của nhân vật
   const [formStatus, setFormStatus] = useState<CharacterStatus>("in-progress");
   const [formStatusReason, setFormStatusReason] = useState("");
 
-  // (2) Mạch truyện bổ sung (ngoại truyện) - danh sách riêng biệt
   const [formStoryArcs, setFormStoryArcs] = useState<StoryArc[]>([]);
   const [arcTitle, setArcTitle] = useState("");
   const [arcContent, setArcContent] = useState("");
 
-  // (3) Vibe Gallery - bộ ảnh phong cách Instagram
   const [formGallery, setFormGallery] = useState<GalleryImage[]>([]);
   const [galleryCaption, setGalleryCaption] = useState("");
-  const [galleryUploading, setGalleryUploading] = useState(false);
 
-  // (4) Yêu cầu Key để mở khoá nhân vật
   const [formRequiredKeyTier, setFormRequiredKeyTier] = useState<KeyTier | "">("");
   const [formUnlockRewardLink, setFormUnlockRewardLink] = useState("");
 
-  // Firestore Realtime Synchronization
+  // Tự động tải Script của Widget Cloudinary xịn xò vào khi vào vườn
+  useEffect(() => {
+    if (!document.getElementById("cloudinary-widget-script")) {
+      const script = document.createElement("script");
+      script.id = "cloudinary-widget-script";
+      script.src = "https://upload-widget.cloudinary.com/global/all.js";
+      script.type = "text/javascript";
+      script.async = true;
+      document.head.appendChild(script);
+    }
+  }, []);
+
   useEffect(() => {
     const q = query(collection(db, "characters"), orderBy("createdAt", "desc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -142,18 +143,12 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
     return () => unsubscribe();
   }, []);
 
-  // Collect all unique tags
   const allTags = ["All", ...Array.from(new Set(characters.flatMap((c) => c.tags)))];
-
-  // Filtering Logic
-  const filteredCharacters = activeFilter === "All"
-    ? characters
-    : characters.filter((c) => c.tags.includes(activeFilter));
+  const filteredCharacters = activeFilter === "All" ? characters : characters.filter((c) => c.tags.includes(activeFilter));
 
   const userKeys = currentUser?.keys || EMPTY_KEYS;
   const unlockedIds = currentUser?.unlockedCharacterIds || [];
 
-  // Like interaction with realtime Firestore sync and bouncy pop
   const handleLike = async (character: Character, event: React.MouseEvent) => {
     event.stopPropagation();
     try {
@@ -181,9 +176,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
         showToast(`Đã thả tim cho ${character.name}! 💕`, "success");
       } else {
         const charRef = doc(db, "characters", character.id);
-        await updateDoc(charRef, {
-          likes: character.likes + 1,
-        });
+        await updateDoc(charRef, { likes: character.likes + 1 });
         showToast(`Đã thả tim cho ${character.name}! 💕`, "success");
       }
     } catch (err) {
@@ -192,94 +185,72 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
     }
   };
 
-  // Ghi nhận 1 lượt xem "Chi tiết" — dùng increment() để cộng an toàn dù nhiều
-  // người xem cùng lúc. Không chặn trùng theo user (giống cách nút Tim hiện
-  // tại cũng không chặn 1 người thả tim nhiều lần) — đơn giản, đủ dùng để đo
-  // độ hot của từng nhân vật.
   const handleViewCharacter = async (character: Character) => {
     setSelectedCharacter(character);
-    if (character.id.startsWith("default-")) return; // nhân vật tĩnh, không có doc Firestore thật
+    if (character.id.startsWith("default-")) return;
     try {
       const charRef = doc(db, "characters", character.id);
       await updateDoc(charRef, { views: increment(1) });
     } catch (err) {
       console.error(err);
-      // Không showToast lỗi ở đây — lỗi đếm lượt xem không nên làm phiền trải
-      // nghiệm xem chi tiết của người dùng.
     }
   };
 
-  // Cloudinary Secure Media Upload (avatar)
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setUploading(true);
-    showToast("Đang cưỡi mây bay lên... ☁", "info");
-
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("upload_preset", "dreamy_garden_preset");
-
-      const response = await fetch("https://api.cloudinary.com/v1_1/i7upt5gk/auto/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error("Cloudinary upload failed");
-      }
-
-      const data = await response.json();
-      setFormAvatar(data.secure_url);
-      showToast("Tải ảnh lên thành công! ✨ Preview sẵn sàng.", "success");
-    } catch (err) {
-      console.error(err);
-      showToast("Tải ảnh lên thất bại. Vui lòng kiểm tra upload_preset!", "error");
-    } finally {
-      setUploading(false);
+  // --- CÔNG CỤ CẮT ẢNH CHO AVATAR (1 Ảnh Vuông Tròn Hoàn Hảo) ---
+  const handleAvatarUpload = () => {
+    if (typeof window === "undefined" || !(window as any).cloudinary) {
+      showToast("Công cụ nghệ thuật đang tải, chị đợi đệ vài giây nhé! ☁", "info");
+      return;
     }
+
+    (window as any).cloudinary.createUploadWidget(
+      {
+        cloudName: "i7upt5gk",
+        uploadPreset: "dreamy_garden_preset",
+        sources: ["local", "url", "camera"],
+        multiple: false,
+        cropping: true, // Ép cắt ảnh thủ công
+        croppingAspectRatio: 1, // Buộc cắt hình vuông để avatar hiển thị tròn tuyệt đối
+        showSkipCropButton: false, 
+      },
+      (error: any, result: any) => {
+        if (!error && result && result.event === "success") {
+          setFormAvatar(result.info.secure_url);
+          showToast("Đã cắt tỉa Avatar xinh xắn thành công! ✨", "success");
+        }
+      }
+    ).open();
   };
 
-  // Thêm ảnh vào Vibe Gallery (upload Cloudinary, giữ chú thích tuỳ chọn kèm theo)
-  const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setGalleryUploading(true);
-    showToast("Đang thêm ảnh vào vibe board... ☁", "info");
-
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("upload_preset", "dreamy_garden_preset");
-
-      const response = await fetch("https://api.cloudinary.com/v1_1/i7upt5gk/auto/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error("Cloudinary upload failed");
-      }
-
-      const data = await response.json();
-      const newImage: GalleryImage = {
-        id: `gallery-${Date.now()}`,
-        url: data.secure_url,
-        ...(galleryCaption.trim() ? { caption: galleryCaption.trim() } : {}),
-      };
-      setFormGallery((prev) => [...prev, newImage]);
-      setGalleryCaption("");
-      showToast("Đã thêm ảnh vào vibe board! ✨", "success");
-    } catch (err) {
-      console.error(err);
-      showToast("Tải ảnh lên thất bại. Vui lòng kiểm tra upload_preset!", "error");
-    } finally {
-      setGalleryUploading(false);
-      e.target.value = "";
+  // --- CÔNG CỤ CẮT ẢNH CHO VIBE GALLERY (Nhiều Ảnh + Cắt Thủ Công) ---
+  const handleGalleryUpload = () => {
+    if (typeof window === "undefined" || !(window as any).cloudinary) {
+      showToast("Công cụ nghệ thuật đang tải, chị đợi đệ vài giây nhé! ☁", "info");
+      return;
     }
+
+    (window as any).cloudinary.createUploadWidget(
+      {
+        cloudName: "i7upt5gk",
+        uploadPreset: "dreamy_garden_preset",
+        sources: ["local", "url", "camera"],
+        multiple: true, // Cho phép chọn up cực nhiều ảnh
+        cropping: true, // Hiện bảng cắt từng tấm để canh trúng vật chủ
+        croppingAspectRatio: 1, // Ép cắt vuông để grid Vibe Board ko bị méo
+        showSkipCropButton: true, // Có thể bỏ qua nếu ảnh gốc đã ưng ý
+      },
+      (error: any, result: any) => {
+        if (!error && result && result.event === "success") {
+          const newImage: GalleryImage = {
+            id: `gallery-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+            url: result.info.secure_url,
+            ...(galleryCaption.trim() ? { caption: galleryCaption.trim() } : {}),
+          };
+          setFormGallery((prev) => [...prev, newImage]);
+          showToast("Một kiệt tác vừa được thêm vào Vibe Board! ✨", "success");
+        }
+      }
+    ).open();
   };
 
   const handleRemoveGalleryImage = (id: string) => {
@@ -291,13 +262,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
       showToast("Vui lòng nhập đủ tên và nội dung mạch truyện!", "error");
       return;
     }
-
-    const newArc: StoryArc = {
-      id: `arc-${Date.now()}`,
-      title: arcTitle.trim(),
-      content: arcContent.trim(),
-    };
-
+    const newArc: StoryArc = { id: `arc-${Date.now()}`, title: arcTitle.trim(), content: arcContent.trim() };
     setFormStoryArcs((prev) => [...prev, newArc]);
     setArcTitle("");
     setArcContent("");
@@ -307,7 +272,6 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
     setFormStoryArcs((prev) => prev.filter((a) => a.id !== id));
   };
 
-  // Create or Update Character inside Firestore
   const handleSaveCharacter = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName || !formRole || !formPlot || !formAvatar) {
@@ -316,11 +280,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
     }
 
     try {
-      const parsedTags = formTags
-        .split(",")
-        .map((t) => t.trim())
-        .filter((t) => t.length > 0);
-
+      const parsedTags = formTags.split(",").map((t) => t.trim()).filter((t) => t.length > 0);
       const characterData = {
         name: formName.trim(),
         role: formRole.trim(),
@@ -345,7 +305,6 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
         showToast(`Gieo mầm nhân vật ${formName} thành công! 🌱`, "success");
       }
 
-      // Reset Form
       setFormName("");
       setFormRole("");
       setFormPlot("");
@@ -368,7 +327,6 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
     }
   };
 
-  // Delete Character from Firestore
   const handleDeleteCharacter = async (id: string, name: string) => {
     if (window.confirm(`Bạn có chắc chắn muốn xóa nhân vật ${name}?`)) {
       try {
@@ -381,7 +339,6 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
     }
   };
 
-  // Edit Button Trigger
   const handleStartEdit = (char: Character) => {
     const ext = char as CharacterExt;
     setEditingId(char.id);
@@ -402,7 +359,6 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
     setShowForm(true);
   };
 
-  // Dùng 1 chìa khoá trong túi đồ để mở khoá vĩnh viễn 1 nhân vật
   const handleUnlockWithKey = async (character: Character) => {
     if (!currentUser) {
       showToast("Vui lòng đăng nhập để dùng chìa khoá mở khoá nhân vật!", "info");
@@ -430,11 +386,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
       const userRef = doc(db, "users", userId);
       await setDoc(userRef, { keys: updatedKeys, unlockedCharacterIds: updatedUnlockedIds }, { merge: true });
 
-      const updatedUser: UserProfile = {
-        ...currentUser,
-        keys: updatedKeys,
-        unlockedCharacterIds: updatedUnlockedIds,
-      };
+      const updatedUser: UserProfile = { ...currentUser, keys: updatedKeys, unlockedCharacterIds: updatedUnlockedIds };
       onUpdateUser(updatedUser);
       showToast(`Đã dùng Key ${KEY_TIER_META[tier].emoji} ${KEY_TIER_META[tier].label} mở khoá ${character.name}! 🎉`, "success");
     } catch (err) {
@@ -445,17 +397,13 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
     }
   };
 
-  // [CHỈ ADMIN] Cấp thẳng 1 Key để test, không cần cày streak thật
   const handleAdminGrantKey = async (tier: KeyTier) => {
     if (!currentUser || !isAdmin) return;
-
     const updatedKeys: UserKeys = { ...userKeys, [tier]: (userKeys[tier] || 0) + 1 };
-
     try {
       const userId = currentUser.username?.toLowerCase() || currentUser.uid || currentUser.id || "unknown_user";
       const userRef = doc(db, "users", userId);
       await setDoc(userRef, { keys: updatedKeys }, { merge: true });
-
       const updatedUser: UserProfile = { ...currentUser, keys: updatedKeys };
       onUpdateUser(updatedUser);
       showToast(`[Test] Đã cấp 1 Key ${KEY_TIER_META[tier].emoji} ${KEY_TIER_META[tier].label} vào túi đồ!`, "success");
@@ -472,7 +420,6 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
   return (
     <div className="w-full max-w-6xl mx-auto px-4 py-8 z-10 flex flex-col gap-6 relative">
 
-      {/* Header with Admin Creation Trigger + Túi Đồ */}
       <div className="flex justify-between items-center flex-wrap gap-2">
         <h2 className="text-2xl font-display text-white text-glow-pearl flex items-center gap-2">
           <Sparkles className="w-5 h-5 text-pink-400 animate-spin-slow" />
@@ -501,7 +448,6 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
         </div>
       </div>
 
-      {/* Admin Character Creator Form */}
       <AnimatePresence>
         {showForm && isAdmin && (
           <motion.div
@@ -553,7 +499,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
               </div>
 
               <div className="flex flex-col gap-1.5 relative">
-                <label className="text-xs font-bold text-slate-600">Avatar đại diện</label>
+                <label className="text-xs font-bold text-slate-600">Avatar đại diện (cắt tỉa khung tròn)</label>
                 <div className="flex gap-2">
                   <input
                     type="text"
@@ -562,16 +508,14 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                     onChange={(e) => setFormAvatar(e.target.value)}
                     className="bg-white/50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white flex-1"
                   />
-                  <label className="bg-pink-100 hover:bg-pink-200 text-pink-700 px-3 py-2 rounded-xl text-xs font-bold cursor-pointer transition-colors flex items-center justify-center gap-1">
+                  <button
+                    type="button"
+                    onClick={handleAvatarUpload}
+                    className="bg-pink-100 hover:bg-pink-200 text-pink-700 px-3 py-2 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1 shadow-sm"
+                  >
                     <Upload className="w-3.5 h-3.5" />
-                    Tải ảnh
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleAvatarUpload}
-                      className="hidden"
-                    />
-                  </label>
+                    Tải & Cắt ảnh
+                  </button>
                 </div>
               </div>
 
@@ -587,7 +531,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                 />
               </div>
 
-              {/* ---- (1) Trạng thái tiến độ của nhân vật ---- */}
+              {/* Trạng Thái Tiến Độ */}
               <div className="col-span-1 md:col-span-2 flex flex-col gap-2 pt-3 border-t border-pink-100">
                 <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
                   <Clock className="w-3.5 h-3.5 text-purple-400" />
@@ -614,7 +558,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                 )}
               </div>
 
-              {/* ---- (4) Yêu cầu Key để mở khoá (key economy) ---- */}
+              {/* Yêu Cầu Key */}
               <div className="col-span-1 md:col-span-2 flex flex-col gap-2 pt-3 border-t border-pink-100">
                 <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
                   <Lock className="w-3.5 h-3.5 text-purple-400" />
@@ -644,7 +588,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                 )}
               </div>
 
-              {/* ---- (2) Mạch truyện bổ sung (ngoại truyện) - phần riêng biệt ---- */}
+              {/* Mạch Truyện Ngoại Truyện */}
               <div className="col-span-1 md:col-span-2 flex flex-col gap-2 pt-3 border-t border-pink-100">
                 <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
                   <BookOpen className="w-3.5 h-3.5 text-purple-400" />
@@ -677,10 +621,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                 {formStoryArcs.length > 0 && (
                   <div className="flex flex-col gap-1.5 mt-1">
                     {formStoryArcs.map((arc) => (
-                      <div
-                        key={arc.id}
-                        className="flex items-start gap-2 px-3 py-2 rounded-xl border border-purple-100 bg-purple-50/50 text-[11px]"
-                      >
+                      <div key={arc.id} className="flex items-start gap-2 px-3 py-2 rounded-xl border border-purple-100 bg-purple-50/50 text-[11px]">
                         <BookOpen className="w-3 h-3 flex-shrink-0 mt-0.5 text-purple-400" />
                         <div className="flex-1">
                           <p className="font-bold text-slate-700">{arc.title}</p>
@@ -699,7 +640,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                 )}
               </div>
 
-              {/* ---- (3) Vibe Gallery - bộ ảnh phong cách Instagram ---- */}
+              {/* Vibe Gallery */}
               <div className="col-span-1 md:col-span-2 flex flex-col gap-2 pt-3 border-t border-pink-100">
                 <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
                   <Images className="w-3.5 h-3.5 text-purple-400" />
@@ -709,38 +650,25 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                 <div className="flex gap-2">
                   <input
                     type="text"
-                    placeholder="Chú thích cho ảnh (tuỳ chọn)"
+                    placeholder="Chú thích chung cho các ảnh chuẩn bị up (tuỳ chọn)"
                     value={galleryCaption}
                     onChange={(e) => setGalleryCaption(e.target.value)}
                     className="bg-white/50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white flex-1"
                   />
-                  <label className="bg-pink-100 hover:bg-pink-200 text-pink-700 px-3 py-2 rounded-xl text-xs font-bold cursor-pointer transition-colors flex items-center justify-center gap-1 whitespace-nowrap">
+                  <button
+                    type="button"
+                    onClick={handleGalleryUpload}
+                    className="bg-pink-100 hover:bg-pink-200 text-pink-700 px-3 py-2 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1 whitespace-nowrap shadow-sm"
+                  >
                     <Upload className="w-3.5 h-3.5" />
-                    Thêm ảnh
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleGalleryUpload}
-                      className="hidden"
-                      disabled={galleryUploading}
-                    />
-                  </label>
+                    Thêm nhiều ảnh & Cắt
+                  </button>
                 </div>
-
-                {galleryUploading && (
-                  <div className="flex items-center gap-2 text-pink-600 text-xs font-bold animate-pulse">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Đang tải ảnh lên... ☁
-                  </div>
-                )}
 
                 {formGallery.length > 0 && (
                   <div className="grid grid-cols-4 gap-2 mt-1">
                     {formGallery.map((img) => (
-                      <div
-                        key={img.id}
-                        className="relative aspect-square rounded-lg overflow-hidden border border-pink-200 group"
-                      >
+                      <div key={img.id} className="relative aspect-square rounded-lg overflow-hidden border border-pink-200 group">
                         <img
                           src={img.url}
                           alt={img.caption || "vibe"}
@@ -759,13 +687,6 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                   </div>
                 )}
               </div>
-
-              {uploading && (
-                <div className="col-span-1 md:col-span-2 flex items-center justify-center gap-2 text-pink-600 text-xs font-bold animate-pulse">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Đang cưỡi mây bay lên... ☁
-                </div>
-              )}
 
               {formAvatar && (
                 <div className="col-span-1 md:col-span-2 flex flex-col items-center justify-center gap-1.5">
@@ -789,7 +710,6 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                 </button>
                 <button
                   type="submit"
-                  disabled={uploading || galleryUploading}
                   className="px-5 py-2 bg-gradient-to-r from-pink-400 to-purple-400 hover:from-pink-500 hover:to-purple-500 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-md"
                 >
                   <Save className="w-3.5 h-3.5" />
@@ -801,11 +721,8 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
         )}
       </AnimatePresence>
 
-      {/* Filter Tags (Horizontal, hide scrollbar) */}
-      <div
-        id="filter-tags-container"
-        className="w-full overflow-x-auto hide-scrollbar flex gap-2 pb-2 border-b border-white/20"
-      >
+      {/* Filter Tags */}
+      <div id="filter-tags-container" className="w-full overflow-x-auto hide-scrollbar flex gap-2 pb-2 border-b border-white/20">
         {allTags.map((tag) => (
           <button
             key={tag}
@@ -839,8 +756,6 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                 transition={{ duration: 0.4 }}
                 className="relative p-6 rounded-[32px] glass-panel hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 flex flex-col items-center text-center group"
               >
-
-                {/* Admin actions (Edit/Delete icons) */}
                 {isAdmin && (
                   <div className="absolute top-4 right-4 flex gap-1.5 z-10">
                     <button
@@ -860,7 +775,6 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                   </div>
                 )}
 
-                {/* Avatar with Wavy Gradient liquid border rotating continually */}
                 <div className="relative w-32 h-32 mb-4 select-none">
                   <div className="absolute -inset-1.5 rounded-full bg-gradient-to-tr from-green-300 via-pink-300 to-purple-300 blur-sm animate-wave-rotate opacity-75" />
                   <div className="absolute -inset-1 rounded-full liquid-border opacity-90" />
@@ -874,7 +788,6 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                   </div>
                 </div>
 
-                {/* Name & Role */}
                 <h3 className="text-lg font-bold text-slate-800 font-display group-hover:text-pink-600 transition-colors">
                   {char.name}
                 </h3>
@@ -882,15 +795,12 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                   {char.role}
                 </p>
 
-                {/* Badge: hiện CẢ Trạng Thái tiến độ VÀ Yêu Cầu Key cùng lúc - 2 khái niệm khác nhau */}
                 <div className="flex flex-col items-center gap-1.5 mb-3 max-w-full">
                   {ext.status && (() => {
                     const meta = CHARACTER_STATUS_META[ext.status!];
                     const Icon = meta.icon;
                     return (
-                      <div
-                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-[9px] font-bold max-w-full ${meta.badge}`}
-                      >
+                      <div className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-[9px] font-bold max-w-full ${meta.badge}`}>
                         <Icon className="w-3 h-3 flex-shrink-0" />
                         <span className="truncate">{meta.shortLabel}</span>
                       </div>
@@ -900,34 +810,25 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                   {hasKeyGate && (
                     <div
                       className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-[9px] font-bold max-w-full ${
-                        isKeyUnlocked
-                          ? "text-emerald-600 bg-emerald-50 border-emerald-200"
-                          : KEY_TIER_META[ext.requiredKeyTier!].badge
+                        isKeyUnlocked ? "text-emerald-600 bg-emerald-50 border-emerald-200" : KEY_TIER_META[ext.requiredKeyTier!].badge
                       }`}
                     >
                       {isKeyUnlocked ? <Unlock className="w-3 h-3 flex-shrink-0" /> : <Lock className="w-3 h-3 flex-shrink-0" />}
                       <span className="truncate">
-                        {isKeyUnlocked
-                          ? "Đã mở khoá"
-                          : `${KEY_TIER_META[ext.requiredKeyTier!].emoji} Cần Key ${KEY_TIER_META[ext.requiredKeyTier!].label}`}
+                        {isKeyUnlocked ? "Đã mở khoá" : `${KEY_TIER_META[ext.requiredKeyTier!].emoji} Cần Key ${KEY_TIER_META[ext.requiredKeyTier!].label}`}
                       </span>
                     </div>
                   )}
                 </div>
 
-                {/* Tag Capsules */}
                 <div className="flex flex-wrap gap-1 justify-center mb-4">
                   {char.tags.map((t) => (
-                    <span
-                      key={t}
-                      className="text-[9px] bg-white/40 text-slate-600 font-bold px-2 py-0.5 rounded-full border border-white/40"
-                    >
+                    <span key={t} className="text-[9px] bg-white/40 text-slate-600 font-bold px-2 py-0.5 rounded-full border border-white/40">
                       #{t}
                     </span>
                   ))}
                 </div>
 
-                {/* Footer Controls with Interactive Bouncy heart liking */}
                 <div className="flex w-full justify-between items-center mt-auto pt-3 border-t border-white/20">
                   <button
                     onClick={() => handleViewCharacter(char)}
@@ -938,7 +839,6 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                   </button>
 
                   <div className="flex items-center gap-3">
-                    {/* Lượt xem — công khai cho mọi người thấy */}
                     <div className="flex items-center gap-1 text-slate-400" title="Lượt xem Chi tiết">
                       <Eye className="w-3 h-3" />
                       <span className="text-xs font-bold">{ext.views || 0}</span>
@@ -958,7 +858,6 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                     </div>
                   </div>
                 </div>
-
               </motion.div>
             );
           })}
@@ -982,7 +881,6 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
               className="bg-white/70 backdrop-blur-xl border border-white/60 p-6 md:p-8 rounded-[36px] shadow-2xl max-w-2xl w-full text-slate-800 relative max-h-[90vh] flex flex-col custom-scroll overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Close Button */}
               <button
                 onClick={() => setSelectedCharacter(null)}
                 className="absolute top-5 right-5 p-2 rounded-full bg-white/50 hover:bg-white text-slate-700 transition-all hover:scale-110 shadow-sm"
@@ -996,14 +894,11 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
 
                 return (
                   <>
-                    {/* Trạng Thái tiến độ sáng tác nhân vật - LUÔN hiện nếu có, độc lập với hệ khoá */}
                     {ext.status && (() => {
                       const meta = CHARACTER_STATUS_META[ext.status!];
                       const Icon = meta.icon;
                       return (
-                        <div
-                          className={`self-center md:self-start inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[10px] font-bold mb-3 ${meta.badge}`}
-                        >
+                        <div className={`self-center md:self-start inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[10px] font-bold mb-3 ${meta.badge}`}>
                           <Icon className="w-3 h-3" />
                           <span>{meta.label}</span>
                           {ext.status === "locked" && ext.statusReason && (
@@ -1013,7 +908,6 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                       );
                     })()}
 
-                    {/* Yêu Cầu Key - hiện thêm nếu nhân vật này có gắn key gate */}
                     {hasKeyGate && (() => {
                       const tier = ext.requiredKeyTier!;
                       const meta = KEY_TIER_META[tier];
@@ -1024,9 +918,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                         <div className={`rounded-2xl border p-4 mb-4 ${isUnlocked ? "border-emerald-200 bg-emerald-50/60" : meta.badge}`}>
                           {isUnlocked ? (
                             <div className="flex flex-col gap-2 items-center text-center">
-                              <span className="text-xs font-bold text-emerald-700">
-                                🎉 Đã mở khoá bằng {meta.emoji} Key {meta.label}
-                              </span>
+                              <span className="text-xs font-bold text-emerald-700">🎉 Đã mở khoá bằng {meta.emoji} Key {meta.label}</span>
                               {ext.unlockRewardLink && (
                                 <a
                                   href={ext.unlockRewardLink}
@@ -1041,12 +933,8 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                             </div>
                           ) : (
                             <div className="flex flex-col gap-2 items-center text-center">
-                              <span className="text-xs font-bold">
-                                {meta.emoji} Cần Key {meta.label} để mở khoá nhân vật này
-                              </span>
-                              <span className="text-[10px] opacity-80">
-                                Bạn đang có: {availableCount} Key {meta.label}
-                              </span>
+                              <span className="text-xs font-bold">{meta.emoji} Cần Key {meta.label} để mở khoá nhân vật này</span>
+                              <span className="text-[10px] opacity-80">Bạn đang có: {availableCount} Key {meta.label}</span>
                               <button
                                 type="button"
                                 onClick={() => handleUnlockWithKey(selectedCharacter)}
@@ -1057,9 +945,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                                 {unlockingId === selectedCharacter.id ? "Đang mở..." : "Dùng Key Mở Khoá"}
                               </button>
                               {availableCount < 1 && (
-                                <span className="text-[10px] opacity-70 italic">
-                                  Giữ chuỗi Manifest {meta.threshold} ngày rồi đổi Key ở trang Manifest nhé!
-                                </span>
+                                <span className="text-[10px] opacity-70 italic">Giữ chuỗi Manifest {meta.threshold} ngày rồi đổi Key ở trang Manifest nhé!</span>
                               )}
                             </div>
                           )}
@@ -1071,7 +957,6 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
               })()}
 
               <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
-                {/* Large Avatar */}
                 <div className="relative w-40 h-40 flex-shrink-0">
                   <div className="absolute -inset-2 rounded-full bg-gradient-to-tr from-green-300 via-pink-300 to-purple-400 blur-sm animate-wave-rotate opacity-75" />
                   <div className="absolute -inset-1 rounded-full liquid-border" />
@@ -1085,30 +970,17 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                   </div>
                 </div>
 
-                {/* Character Name and Role */}
                 <div className="flex-1 text-center md:text-left">
-                  <span className="text-[10px] uppercase font-bold tracking-widest text-pink-500">
-                    Cốt truyện nhân vật
-                  </span>
-                  <h3 className="text-2xl font-bold font-display text-slate-900 mt-1">
-                    {selectedCharacter.name}
-                  </h3>
-                  <p className="text-xs italic text-slate-600 mt-0.5 font-medium">
-                    {selectedCharacter.role}
-                  </p>
-
+                  <span className="text-[10px] uppercase font-bold tracking-widest text-pink-500">Cốt truyện nhân vật</span>
+                  <h3 className="text-2xl font-bold font-display text-slate-900 mt-1">{selectedCharacter.name}</h3>
+                  <p className="text-xs italic text-slate-600 mt-0.5 font-medium">{selectedCharacter.role}</p>
                   <div className="flex flex-wrap gap-1 mt-2.5 justify-center md:justify-start">
                     {selectedCharacter.tags.map((t) => (
-                      <span
-                        key={t}
-                        className="text-[9px] bg-pink-50 text-pink-700 font-bold px-2.5 py-0.5 rounded-full border border-pink-100/50"
-                      >
+                      <span key={t} className="text-[9px] bg-pink-50 text-pink-700 font-bold px-2.5 py-0.5 rounded-full border border-pink-100/50">
                         #{t}
                       </span>
                     ))}
                   </div>
-
-                  {/* Hearts metrics */}
                   <div className="flex items-center justify-center md:justify-start gap-1 text-pink-600 mt-4 font-bold text-xs">
                     <Heart className="w-4 h-4 fill-pink-500 text-pink-500 animate-pulse" />
                     <span>{selectedCharacter.likes} lượt thích kì diệu</span>
@@ -1116,82 +988,65 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                 </div>
               </div>
 
-              {/* (3) Vibe Board — đặt NGAY dưới avatar/tên, TRƯỚC Tiểu Sử, dạng bento moodboard */}
-              {(selectedCharacter as CharacterExt).gallery &&
-                (selectedCharacter as CharacterExt).gallery!.length > 0 && (
-                  <div className="mt-6 pt-5 border-t border-pink-100">
-                    <h4 className="text-xs uppercase tracking-widest font-bold text-slate-500 mb-3 flex items-center gap-1.5">
-                      <Images className="w-3.5 h-3.5 text-purple-400" />
-                      Vibe Board
-                    </h4>
+              {(selectedCharacter as CharacterExt).gallery && (selectedCharacter as CharacterExt).gallery!.length > 0 && (
+                <div className="mt-6 pt-5 border-t border-pink-100">
+                  <h4 className="text-xs uppercase tracking-widest font-bold text-slate-500 mb-3 flex items-center gap-1.5">
+                    <Images className="w-3.5 h-3.5 text-purple-400" />
+                    Vibe Board
+                  </h4>
+                  <div className="grid grid-cols-3 gap-2 [grid-auto-flow:dense]">
+                    {(selectedCharacter as CharacterExt).gallery!.map((img, i) => {
+                      const isFeatured = i % 6 === 0;
+                      const span = isFeatured ? "col-span-2 row-span-2" : "";
+                      const tilt = i % 3 === 0 ? "-rotate-1" : i % 3 === 1 ? "rotate-1" : "rotate-0";
 
-                    <div className="grid grid-cols-3 gap-2 [grid-auto-flow:dense]">
-                      {(selectedCharacter as CharacterExt).gallery!.map((img, i) => {
-                        // Cứ mỗi 6 ảnh thì có 1 ảnh "nổi bật" chiếm khối vuông 2x2,
-                        // còn lại là ô vuông nhỏ — TẤT CẢ đều dùng aspect-square
-                        // nên ảnh không bao giờ bị bẹp/kéo dãn nữa.
-                        const isFeatured = i % 6 === 0;
-                        const span = isFeatured ? "col-span-2 row-span-2" : "";
-                        const tilt = i % 3 === 0 ? "-rotate-1" : i % 3 === 1 ? "rotate-1" : "rotate-0";
-
-                        return (
-                          <div
-                            key={img.id}
-                            className={`relative aspect-square rounded-2xl overflow-hidden group shadow-md ring-1 ring-white/60 ${span} ${tilt} hover:rotate-0 hover:scale-[1.03] hover:z-10 hover:shadow-xl transition-all duration-300 ease-out`}
-                          >
-                            <img
-                              src={img.url}
-                              alt={img.caption || selectedCharacter.name}
-                              className="w-full h-full object-cover"
-                              referrerPolicy="no-referrer"
-                            />
-                            {/* Overlay gradient + caption chỉ hiện khi hover */}
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                            {img.caption && (
-                              <span className="absolute bottom-2 left-2.5 right-2.5 text-[9px] text-white font-semibold opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0 transition-all duration-300 drop-shadow-md line-clamp-1">
-                                {img.caption}
-                              </span>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
+                      return (
+                        <div
+                          key={img.id}
+                          className={`relative aspect-square rounded-2xl overflow-hidden group shadow-md ring-1 ring-white/60 ${span} ${tilt} hover:rotate-0 hover:scale-[1.03] hover:z-10 hover:shadow-xl transition-all duration-300 ease-out`}
+                        >
+                          <img
+                            src={img.url}
+                            alt={img.caption || selectedCharacter.name}
+                            className="w-full h-full object-cover"
+                            referrerPolicy="no-referrer"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                          {img.caption && (
+                            <span className="absolute bottom-2 left-2.5 right-2.5 text-[9px] text-white font-semibold opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0 transition-all duration-300 drop-shadow-md line-clamp-1">
+                              {img.caption}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
-                )}
+                </div>
+              )}
 
-              {/* Detailed Plot (Cốt truyện phiêu lưu) — giờ nằm SAU Vibe Board */}
               <div className="mt-6 pt-5 border-t border-pink-100 text-slate-700">
-                <h4 className="text-xs uppercase tracking-widest font-bold text-slate-500 mb-2">
-                  Tiểu Sử Phiêu Lưu
-                </h4>
+                <h4 className="text-xs uppercase tracking-widest font-bold text-slate-500 mb-2">Tiểu Sử Phiêu Lưu</h4>
                 <div className="text-sm leading-loose whitespace-pre-line text-slate-700/90 font-medium">
                   {selectedCharacter.plot}
                 </div>
               </div>
 
-              {/* (2) Mạch Truyện Bổ Sung (Ngoại truyện) - ngay dưới Tiểu Sử, không có trạng thái riêng */}
-              {(selectedCharacter as CharacterExt).storyArcs &&
-                (selectedCharacter as CharacterExt).storyArcs!.length > 0 && (
-                  <div className="mt-6 pt-5 border-t border-pink-100 text-slate-700">
-                    <h4 className="text-xs uppercase tracking-widest font-bold text-slate-500 mb-3 flex items-center gap-1.5">
-                      <BookOpen className="w-3.5 h-3.5 text-purple-400" />
-                      Mạch Truyện Bổ Sung
-                    </h4>
-                    <div className="flex flex-col gap-3">
-                      {(selectedCharacter as CharacterExt).storyArcs!.map((arc) => (
-                        <div
-                          key={arc.id}
-                          className="px-3.5 py-3 rounded-2xl border border-purple-100 bg-purple-50/40"
-                        >
-                          <p className="text-xs font-bold text-purple-700 mb-1">{arc.title}</p>
-                          <p className="text-xs leading-relaxed text-slate-600 whitespace-pre-line">
-                            {arc.content}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
+              {(selectedCharacter as CharacterExt).storyArcs && (selectedCharacter as CharacterExt).storyArcs!.length > 0 && (
+                <div className="mt-6 pt-5 border-t border-pink-100 text-slate-700">
+                  <h4 className="text-xs uppercase tracking-widest font-bold text-slate-500 mb-3 flex items-center gap-1.5">
+                    <BookOpen className="w-3.5 h-3.5 text-purple-400" />
+                    Mạch Truyện Bổ Sung
+                  </h4>
+                  <div className="flex flex-col gap-3">
+                    {(selectedCharacter as CharacterExt).storyArcs!.map((arc) => (
+                      <div key={arc.id} className="px-3.5 py-3 rounded-2xl border border-purple-100 bg-purple-50/40">
+                        <p className="text-xs font-bold text-purple-700 mb-1">{arc.title}</p>
+                        <p className="text-xs leading-relaxed text-slate-600 whitespace-pre-line">{arc.content}</p>
+                      </div>
+                    ))}
                   </div>
-                )}
+                </div>
+              )}
             </motion.div>
           </motion.div>
         )}
@@ -1230,18 +1085,13 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                 <p className="text-xs text-slate-500 mt-4">Vui lòng đăng nhập để xem túi đồ và tích luỹ Key nhé!</p>
               ) : (
                 <>
-                  <p className="text-[10px] text-slate-500 mb-4">
-                    Đổi thêm Key tại trang Manifest bằng cách giữ chuỗi manifest.
-                  </p>
+                  <p className="text-[10px] text-slate-500 mb-4">Đổi thêm Key tại trang Manifest bằng cách giữ chuỗi manifest.</p>
                   <div className="grid grid-cols-2 gap-3">
                     {KEY_TIER_ORDER.map((tier) => {
                       const meta = KEY_TIER_META[tier];
                       const count = userKeys[tier] || 0;
                       return (
-                        <div
-                          key={tier}
-                          className={`rounded-2xl border p-3 flex flex-col items-center gap-1 ${meta.badge}`}
-                        >
+                        <div key={tier} className={`rounded-2xl border p-3 flex flex-col items-center gap-1 ${meta.badge}`}>
                           <span className="text-2xl">{meta.emoji}</span>
                           <span className="text-[11px] font-bold">Key {meta.label}</span>
                           <span className="text-lg font-bold">x{count}</span>
@@ -1250,15 +1100,12 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                     })}
                   </div>
 
-                  {/* [CHỈ ADMIN] Khối cấp Key test, không cần cày streak thật */}
                   {isAdmin && (
                     <div className="mt-5 pt-4 border-t border-dashed border-purple-200">
                       <h4 className="text-xs font-bold text-purple-600 mb-1 flex items-center gap-1.5">
                         🛠️ Cấp Key Test (Chỉ Admin)
                       </h4>
-                      <p className="text-[10px] text-slate-500 mb-2">
-                        Dùng để tự test, không cần giữ streak thật.
-                      </p>
+                      <p className="text-[10px] text-slate-500 mb-2">Dùng để tự test, không cần giữ streak thật.</p>
                       <div className="grid grid-cols-4 gap-1.5">
                         {KEY_TIER_ORDER.map((tier) => (
                           <button
