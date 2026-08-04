@@ -1,15 +1,25 @@
 import React, { useState, useEffect, useRef, memo } from "react";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc } from "firebase/firestore";
 import { db } from "../config/firebase";
 import { Character, UserProfile, KeyTier, UserKeys } from "../types";
-import { Sparkles, Flower2, Lock, ShoppingBag, X, Clock, Star, Info } from "lucide-react"; // Đã thêm icon Info
+import { Sparkles, Flower2, Lock, ShoppingBag, X, Clock, Star, Info, Gift } from "lucide-react";
 
 // ============================================================================
 // GHI CHÚ RÁP FIRESTORE:
 // - Component này giả định UserProfile CHƯA có sẵn field `petals` (Cánh Hoa)
 //   và `garden` (trạng thái vườn) trong types.ts, nên em mở rộng cục bộ bằng
 //   `UserProfileExt` (giống hệt cách CharacterSection.tsx mở rộng CharacterExt).
-// - Lưu trực tiếp vào users/{userId} bằng setDoc({ merge: true }) 
+// - Lưu trực tiếp vào users/{userId} bằng setDoc({ merge: true })
+//
+// GHI CHÚ MÃ QUÀ TẶNG:
+// - Đọc từ collection Firestore riêng `giftCodes/{code}` (không hard-code
+//   trong source) để chị tự tạo/đổi mã ngay trên Firebase Console. Cấu trúc
+//   1 document mẫu cho mã chào mừng user mới:
+//     Collection: giftCodes
+//     Document ID: WELCOME   (chị đặt tên mã tuỳ ý, viết hoa cho đồng nhất)
+//     Fields: streak: 15 (number) · petals: 8 (number) · active: true (boolean)
+// - Mỗi user chỉ đổi được 1 mã 1 lần, lưu vết qua `redeemedGiftCodes` trên
+//   chính user doc.
 // ============================================================================
 
 interface GardenPlotState {
@@ -27,6 +37,7 @@ type UserProfileExt = UserProfile & {
   petals?: number;
   garden?: GardenState;
   streak?: number;
+  redeemedGiftCodes?: string[];
 };
 
 interface FlowerGardenSectionProps {
@@ -55,7 +66,7 @@ const SEED_TYPES: Record<
   },
   rare: {
     label: "Hoa Hiếm",
-    subLabel: "Cơ hội nhận Khoá Bạc & Vàng", // Đã ẩn phần trăm
+    subLabel: "Cơ hội nhận Key Bạc & Vàng", // Đã ẩn phần trăm
     cost: 3,
     duration: 10000,
     stemColor: "#93c5fd",
@@ -63,7 +74,7 @@ const SEED_TYPES: Record<
   },
   epic: {
     label: "Hoa Cực Hiếm",
-    subLabel: "Cơ hội nhận Khoá Vàng & Kim Cương", // Đã ẩn phần trăm
+    subLabel: "Cơ hội nhận Key Vàng & Kim Cương", // Đã ẩn phần trăm
     cost: 4,
     duration: 13000,
     stemColor: "#fda4af",
@@ -91,10 +102,10 @@ function rollHarvest(seedType: "common" | "rare" | "epic") {
 }
 
 const KEY_META: Record<KeyTier, { label: string; emoji: string; color: string }> = {
-  bronze: { label: "Khoá Đồng", emoji: "🥉", color: "text-orange-700" },
-  silver: { label: "Khoá Bạc", emoji: "🥈", color: "text-slate-600" },
-  gold: { label: "Khoá Vàng", emoji: "🥇", color: "text-amber-600" },
-  diamond: { label: "Khoá Kim Cương", emoji: "💎", color: "text-cyan-600" },
+  bronze: { label: "Key Đồng", emoji: "🥉", color: "text-orange-700" },
+  silver: { label: "Key Bạc", emoji: "🥈", color: "text-slate-600" },
+  gold: { label: "Key Vàng", emoji: "🥇", color: "text-amber-600" },
+  diamond: { label: "Key Kim Cương", emoji: "💎", color: "text-cyan-600" },
 };
 
 // ---- Cây hoa "sống" — animation hoàn toàn bằng CSS transition ----
@@ -333,14 +344,14 @@ function HarvestResultModal({
           <>
             <p className="text-sm font-bold text-slate-800 mb-1">Trúng lớn rồi!</p>
             <p className={`text-lg font-bold ${keyMeta.color} font-display`}>{keyMeta.label}</p>
-            <p className="text-[11px] text-slate-500 mt-2">Khoá đã được thêm vào Túi Đồ của bạn ✨</p>
+            <p className="text-[11px] text-slate-500 mt-2">Key đã được thêm vào Túi Đồ của bạn ✨</p>
           </>
         ) : (
           <>
             <p className="text-sm font-bold text-slate-800 mb-1">Hái hoa thành công!</p>
             <p className="text-lg font-bold text-pink-500 font-display">+{result.streak} ngày streak</p>
             {result.petals > 0 && <p className="text-[11px] text-purple-500 font-bold mt-1">+{result.petals} 🌸 Cánh Hoa</p>}
-            <p className="text-[11px] text-slate-400 mt-2 italic">Không trúng khoá lần này, quay lại mai nhé!</p>
+            <p className="text-[11px] text-slate-400 mt-2 italic">Không trúng Key lần này, quay lại mai nhé!</p>
           </>
         )}
       </div>
@@ -359,6 +370,8 @@ export default function FlowerGardenSection({ currentUser, onUpdateUser, showToa
   const [showShop, setShowShop] = useState(false);
   const [harvestResult, setHarvestResult] = useState<{ streak: number; petals: number; key: KeyTier | null } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [giftCodeInput, setGiftCodeInput] = useState("");
+  const [redeemingCode, setRedeemingCode] = useState(false);
 
   const freeUsedToday = garden.lastFreeSeedDate === todayStr();
 
@@ -377,6 +390,54 @@ export default function FlowerGardenSection({ currentUser, onUpdateUser, showToa
     } catch (err) {
       console.error(err);
       showToast("Có lỗi khi lưu vườn hoa, thử lại nhé!", "error");
+    }
+  };
+
+  // Đổi mã quà tặng (vd mã chào mừng user mới: +15 streak, +8 Cánh Hoa).
+  // Đọc trực tiếp từ Firestore collection `giftCodes/{code}` — xem ghi chú cấu
+  // trúc ở đầu file. Mỗi user chỉ đổi được 1 mã đúng 1 lần.
+  const handleRedeemGiftCode = async () => {
+    if (!currentUser) {
+      showToast("Vui lòng đăng nhập để đổi mã quà tặng nhé!", "info");
+      return;
+    }
+    const code = giftCodeInput.trim().toUpperCase();
+    if (!code) return;
+
+    const redeemed = ext?.redeemedGiftCodes || [];
+    if (redeemed.includes(code)) {
+      showToast("Bạn đã dùng mã này rồi nhé!", "error");
+      return;
+    }
+
+    setRedeemingCode(true);
+    try {
+      const codeRef = doc(db, "giftCodes", code);
+      const codeSnap = await getDoc(codeRef);
+
+      if (!codeSnap.exists() || codeSnap.data()?.active === false) {
+        showToast("Mã quà tặng không hợp lệ hoặc đã hết hạn!", "error");
+        setRedeemingCode(false);
+        return;
+      }
+
+      const data = codeSnap.data() as { streak?: number; petals?: number };
+      const bonusStreak = data.streak || 0;
+      const bonusPetals = data.petals || 0;
+
+      await persistAndSync({
+        streak: streak + bonusStreak,
+        petals: petals + bonusPetals,
+        redeemedGiftCodes: [...redeemed, code],
+      });
+
+      showToast(`Đổi mã thành công! +${bonusStreak} ngày streak, +${bonusPetals} 🌸 Cánh Hoa`, "success");
+      setGiftCodeInput("");
+    } catch (err) {
+      console.error(err);
+      showToast("Có lỗi khi đổi mã, thử lại nhé!", "error");
+    } finally {
+      setRedeemingCode(false);
     }
   };
 
@@ -446,7 +507,7 @@ export default function FlowerGardenSection({ currentUser, onUpdateUser, showToa
     if (result.key) {
       showToast(`Trúng ${KEY_META[result.key].label}! 🎉`, "success");
     } else {
-      showToast(`Không trúng khoá, nhưng vẫn +${result.streak} ngày streak nhé!`, "info");
+      showToast(`Không trúng Key, nhưng vẫn +${result.streak} ngày streak nhé!`, "info");
     }
     setBusy(false);
   };
@@ -469,7 +530,7 @@ export default function FlowerGardenSection({ currentUser, onUpdateUser, showToa
 
       {!currentUser ? (
         <div className="rounded-[32px] glass-panel p-8 text-center">
-          <p className="text-xs text-slate-500">Vui lòng đăng nhập để trồng hoa và tích luỹ streak/chìa khoá nhé!</p>
+          <p className="text-xs text-slate-500">Vui lòng đăng nhập để trồng hoa và tích luỹ streak/Key nhé!</p>
         </div>
       ) : (
         <>
@@ -490,14 +551,39 @@ export default function FlowerGardenSection({ currentUser, onUpdateUser, showToa
             </div>
           </div>
 
+          {/* Mã Quà Tặng — vd tặng user mới +15 streak / +8 Cánh Hoa, xem ghi chú
+              cấu trúc Firestore `giftCodes/{code}` ở đầu file */}
+          <div className="rounded-[24px] glass-panel px-4 py-3.5 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-pink-300 to-purple-300 flex items-center justify-center flex-shrink-0">
+              <Gift className="w-4 h-4 text-white" />
+            </div>
+            <div className="flex-1 flex gap-2">
+              <input
+                type="text"
+                value={giftCodeInput}
+                onChange={(e) => setGiftCodeInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleRedeemGiftCode()}
+                placeholder="Nhập mã quà tặng..."
+                className="flex-1 min-w-0 bg-white/60 border border-pink-100 rounded-full px-3.5 py-2 text-xs outline-none focus:bg-white placeholder:text-slate-400"
+              />
+              <button
+                onClick={handleRedeemGiftCode}
+                disabled={redeemingCode || !giftCodeInput.trim()}
+                className="px-4 py-2 bg-gradient-to-r from-pink-400 to-purple-400 hover:from-pink-500 hover:to-purple-500 text-white rounded-full text-xs font-bold shadow-sm disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 transition-transform whitespace-nowrap"
+              >
+                {redeemingCode ? "Đang đổi..." : "Đổi Mã"}
+              </button>
+            </div>
+          </div>
+
           <div className="rounded-[32px] glass-panel p-6">
             <div className="grid grid-cols-3 gap-4">
               <GardenPlot plot={garden.commonPlot} onPlant={plantCommon} onHarvest={harvestCommon} canPlantHere={!freeUsedToday} label="Gieo hạt free" />
               <GardenPlot plot={garden.shopPlots[0]} onPlant={() => setShowShop(true)} onHarvest={() => harvestShop(0)} canPlantHere={true} label="Trồng hoa Shop" />
               <GardenPlot plot={garden.shopPlots[1]} onPlant={() => setShowShop(true)} onHarvest={() => harvestShop(1)} canPlantHere={true} label="Trồng hoa Shop" />
             </div>
-            
-            {/* THAY THẾ DÒNG TEXT CŨ BẰNG MỤC HƯỚNG DẪN CHI TIẾT */}
+
+            {/* Sổ Tay Trồng Hoa — hướng dẫn chi tiết cho user mới */}
             <div className="mt-6 pt-5 border-t border-white/40">
               <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5 mb-3">
                 <Info className="w-4 h-4 text-pink-500" />
@@ -514,7 +600,7 @@ export default function FlowerGardenSection({ currentUser, onUpdateUser, showToa
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-lg leading-none mt-0.5">✨</span>
-                  <p><strong>Thu hoạch:</strong> Hái hoa sẽ giúp bạn nhận được <strong>ngày Streak</strong> và <strong>🌸 Cánh Hoa</strong>. Đặc biệt, những nụ hoa kỳ diệu mua từ Shop còn mang theo cơ hội rơi ra các loại <strong>Chìa Khoá</strong>. Hoa càng quý, cơ hội nhận khoá xịn càng cao!</p>
+                  <p><strong>Thu hoạch:</strong> Hái hoa sẽ giúp bạn nhận được <strong>ngày Streak</strong> và <strong>🌸 Cánh Hoa</strong>. Đặc biệt, những nụ hoa kỳ diệu mua từ Shop còn mang theo cơ hội rơi ra các loại <strong>Key</strong>. Hoa càng quý, cơ hội nhận Key xịn càng cao!</p>
                 </li>
               </ul>
             </div>
@@ -557,7 +643,7 @@ export default function FlowerGardenSection({ currentUser, onUpdateUser, showToa
                 );
               })}
             </div>
-            <p className="text-[9px] text-slate-400 text-center mt-3">Không trúng khoá vẫn được cộng ngày streak an ủi.</p>
+            <p className="text-[9px] text-slate-400 text-center mt-3">Không trúng Key vẫn được cộng ngày streak an ủi.</p>
           </div>
         </div>
       )}
