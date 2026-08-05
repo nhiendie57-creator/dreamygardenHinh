@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { collection, doc, onSnapshot, updateDoc, setDoc, deleteDoc, addDoc, query, orderBy, increment } from "firebase/firestore";
 import { db } from "../config/firebase";
 import { Character, UserProfile, KeyTier, UserKeys } from "../types";
@@ -7,6 +7,7 @@ import {
   Heart, Plus, Trash2, Edit2, X, Eye, Sparkles, Upload, Save,
   Lock, Unlock, Clock, BookOpen, Images, ExternalLink, Backpack,
 } from "lucide-react";
+import ImageCropModal from "./ImageCropModal";
 
 interface CharacterSectionProps {
   isAdmin: boolean;
@@ -109,16 +110,13 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
   const [formRequiredKeyTier, setFormRequiredKeyTier] = useState<KeyTier | "">("");
   const [formUnlockRewardLink, setFormUnlockRewardLink] = useState("");
 
-  useEffect(() => {
-    if (!document.getElementById("cloudinary-widget-script")) {
-      const script = document.createElement("script");
-      script.id = "cloudinary-widget-script";
-      script.src = "https://upload-widget.cloudinary.com/global/all.js";
-      script.type = "text/javascript";
-      script.async = true;
-      document.head.appendChild(script);
-    }
-  }, []);
+  // --- Cắt ảnh trực tiếp từ máy (canvas), thay cho Cloudinary widget ---
+  const avatarFileInputRef = useRef<HTMLInputElement>(null);
+  const galleryFileInputRef = useRef<HTMLInputElement>(null);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [cropTarget, setCropTarget] = useState<"avatar" | "gallery" | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [uploadingGalleryImage, setUploadingGalleryImage] = useState(false);
 
   useEffect(() => {
     const q = query(collection(db, "characters"), orderBy("createdAt", "desc"));
@@ -194,59 +192,102 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
     }
   };
 
-  const handleAvatarUpload = () => {
-    if (typeof window === "undefined" || !(window as any).cloudinary) {
-      showToast("Công cụ nghệ thuật đang tải, chị đợi đệ vài giây nhé! ☁", "info");
-      return;
+  // Upload 1 blob (ảnh đã cắt xong ở máy) lên Cloudinary - KHÔNG qua widget, không cần cropping ở server nữa
+  const uploadBlobToCloudinary = async (blob: Blob): Promise<string> => {
+    const formData = new FormData();
+    formData.append("file", blob, "cropped.jpg");
+    formData.append("upload_preset", "dreamy_garden_preset");
+
+    const response = await fetch("https://api.cloudinary.com/v1_1/i7upt5gk/auto/upload", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error("Cloudinary upload failed");
     }
 
-    (window as any).cloudinary.createUploadWidget(
-      {
-        cloudName: "i7upt5gk",
-        uploadPreset: "dreamy_garden_preset",
-        sources: ["local", "url", "camera"],
-        multiple: false,
-        cropping: true,
-        croppingAspectRatio: 1,
-        showSkipCropButton: false,
-      },
-      (error: any, result: any) => {
-        if (!error && result && result.event === "success") {
-          setFormAvatar(result.info.secure_url);
-          showToast("Đã cắt tỉa Avatar xinh xắn thành công! ✨", "success");
-        }
-      }
-    ).open();
+    const data = await response.json();
+    return data.secure_url as string;
   };
 
-  const handleGalleryUpload = () => {
-    if (typeof window === "undefined" || !(window as any).cloudinary) {
-      showToast("Công cụ nghệ thuật đang tải, chị đợi đệ vài giây nhé! ☁", "info");
-      return;
-    }
+  // Bước 1: user chọn file avatar từ máy -> đọc thành base64 -> mở modal cắt
+  const handlePickAvatarFile = () => {
+    avatarFileInputRef.current?.click();
+  };
 
-    (window as any).cloudinary.createUploadWidget(
-      {
-        cloudName: "i7upt5gk",
-        uploadPreset: "dreamy_garden_preset",
-        sources: ["local", "url", "camera"],
-        multiple: true,
-        cropping: true,
-        croppingAspectRatio: 1,
-        showSkipCropButton: true,
-      },
-      (error: any, result: any) => {
-        if (!error && result && result.event === "success") {
-          const newImage: GalleryImage = {
-            id: `gallery-${Date.now()}-${Math.random().toString(36).substring(7)}`,
-            url: result.info.secure_url,
-            ...(galleryCaption.trim() ? { caption: galleryCaption.trim() } : {}),
-          };
-          setFormGallery((prev) => [...prev, newImage]);
-          showToast("Một kiệt tác vừa được thêm vào Vibe Board! ✨", "success");
-        }
+  const handleAvatarFileChosen = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setCropSrc(reader.result as string);
+      setCropTarget("avatar");
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  // Bước 1 (tương tự cho ảnh Vibe Gallery)
+  const handlePickGalleryFile = () => {
+    galleryFileInputRef.current?.click();
+  };
+
+  const handleGalleryFileChosen = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setCropSrc(reader.result as string);
+      setCropTarget("gallery");
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  // Bước 2: sau khi user xác nhận cắt trong modal -> upload blob đã cắt lên Cloudinary
+  const handleCropDone = async (blob: Blob) => {
+    if (cropTarget === "avatar") {
+      setUploadingAvatar(true);
+      showToast("Đang tải Avatar đã cắt lên... ☁", "info");
+      try {
+        const url = await uploadBlobToCloudinary(blob);
+        setFormAvatar(url);
+        showToast("Đã cắt & tải Avatar thành công! ✨", "success");
+      } catch (err) {
+        console.error(err);
+        showToast("Tải avatar thất bại, thử lại nhé!", "error");
+      } finally {
+        setUploadingAvatar(false);
+        setCropSrc(null);
+        setCropTarget(null);
       }
-    ).open();
+    } else if (cropTarget === "gallery") {
+      setUploadingGalleryImage(true);
+      showToast("Đang thêm ảnh vào vibe board... ☁", "info");
+      try {
+        const url = await uploadBlobToCloudinary(blob);
+        const newImage: GalleryImage = {
+          id: `gallery-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+          url,
+          ...(galleryCaption.trim() ? { caption: galleryCaption.trim() } : {}),
+        };
+        setFormGallery((prev) => [...prev, newImage]);
+        showToast("Một kiệt tác vừa được thêm vào Vibe Board! ✨", "success");
+      } catch (err) {
+        console.error(err);
+        showToast("Tải ảnh thất bại, thử lại nhé!", "error");
+      } finally {
+        setUploadingGalleryImage(false);
+        setCropSrc(null);
+        setCropTarget(null);
+      }
+    }
+  };
+
+  const handleCropCancel = () => {
+    setCropSrc(null);
+    setCropTarget(null);
   };
 
   const handleRemoveGalleryImage = (id: string) => {
@@ -277,7 +318,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
 
     try {
       const parsedTags = formTags.split(",").map((t) => t.trim()).filter((t) => t.length > 0);
-      
+
       // Đệ đã XÓA field createdAt ở đây để lúc update nó không bị chèn lên thời gian mới nhất!
       const characterData = {
         name: formName.trim(),
@@ -679,12 +720,20 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                     />
                     <button
                       type="button"
-                      onClick={handleAvatarUpload}
-                      className="bg-pink-100 hover:bg-pink-200 text-pink-700 px-3 py-2 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1 shadow-sm"
+                      onClick={handlePickAvatarFile}
+                      disabled={uploadingAvatar}
+                      className="bg-pink-100 hover:bg-pink-200 text-pink-700 px-3 py-2 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1 shadow-sm disabled:opacity-50 whitespace-nowrap"
                     >
                       <Upload className="w-3.5 h-3.5" />
-                      Tải & Cắt ảnh
+                      {uploadingAvatar ? "Đang tải..." : "Tải & Cắt ảnh"}
                     </button>
+                    <input
+                      ref={avatarFileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleAvatarFileChosen}
+                      className="hidden"
+                    />
                   </div>
                 </div>
 
@@ -819,20 +868,31 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                   <div className="flex gap-2">
                     <input
                       type="text"
-                      placeholder="Chú thích chung cho các ảnh chuẩn bị up (tuỳ chọn)"
+                      placeholder="Chú thích cho ảnh chuẩn bị up (tuỳ chọn)"
                       value={galleryCaption}
                       onChange={(e) => setGalleryCaption(e.target.value)}
                       className="bg-slate-50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white flex-1"
                     />
                     <button
                       type="button"
-                      onClick={handleGalleryUpload}
-                      className="bg-pink-100 hover:bg-pink-200 text-pink-700 px-3 py-2 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1 whitespace-nowrap shadow-sm"
+                      onClick={handlePickGalleryFile}
+                      disabled={uploadingGalleryImage}
+                      className="bg-pink-100 hover:bg-pink-200 text-pink-700 px-3 py-2 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1 whitespace-nowrap shadow-sm disabled:opacity-50"
                     >
                       <Upload className="w-3.5 h-3.5" />
-                      Thêm nhiều ảnh & Cắt
+                      {uploadingGalleryImage ? "Đang tải..." : "Thêm ảnh & Cắt"}
                     </button>
+                    <input
+                      ref={galleryFileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleGalleryFileChosen}
+                      className="hidden"
+                    />
                   </div>
+                  <p className="text-[9px] text-slate-400 -mt-1">
+                    Thêm từng ảnh một để tự cắt riêng cho mỗi tấm nhé (chọn ảnh → cắt → tự động thêm vào danh sách bên dưới).
+                  </p>
 
                   {formGallery.length > 0 && (
                     <div className="grid grid-cols-4 gap-2 mt-1">
@@ -1166,6 +1226,19 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
               )}
             </motion.div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal Cắt Ảnh - dùng chung cho cả Avatar và Vibe Gallery */}
+      <AnimatePresence>
+        {cropSrc && (
+          <ImageCropModal
+            imageSrc={cropSrc}
+            aspect={1}
+            cropShape="round"
+            onCancel={handleCropCancel}
+            onCropDone={handleCropDone}
+          />
         )}
       </AnimatePresence>
     </div>
