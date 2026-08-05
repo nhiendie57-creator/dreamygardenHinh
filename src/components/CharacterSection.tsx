@@ -467,7 +467,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
       <div className="flex justify-between items-center flex-wrap gap-2">
         <h2 className="text-2xl font-display text-white text-glow-pearl flex items-center gap-2">
           <Sparkles className="w-5 h-5 text-pink-400 animate-spin-slow" />
-          Bản Thảo Đang Chờ Bạn
+          Nhân Vật Nhiệm Màu
         </h2>
         <div className="flex items-center gap-2">
           <button
