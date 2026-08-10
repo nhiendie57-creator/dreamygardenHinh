@@ -73,7 +73,7 @@ type CharacterExt = Character & {
   statusReason?: string;
   storyArcs?: StoryArc[];
   gallery?: GalleryImage[];
-  requiredKeyTier?: KeyTier | null;
+  requiredKeyTier?: KeyTier | "public-link" | null;
   unlockRewardLink?: string;
   views?: number;
 };
@@ -105,7 +105,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
   const [formGallery, setFormGallery] = useState<GalleryImage[]>([]);
   const [galleryCaption, setGalleryCaption] = useState("");
 
-  const [formRequiredKeyTier, setFormRequiredKeyTier] = useState<KeyTier | "">("");
+  const [formRequiredKeyTier, setFormRequiredKeyTier] = useState<KeyTier | "public-link" | "">("");
   const [formUnlockRewardLink, setFormUnlockRewardLink] = useState("");
 
   // --- Cắt ảnh trực tiếp từ máy (canvas) ---
@@ -352,7 +352,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
     if (!currentUser) return showToast("Vui lòng đăng nhập để dùng Key mở khoá nhân vật!", "info");
     const ext = character as CharacterExt;
     const tier = ext.requiredKeyTier;
-    if (!tier) return;
+    if (!tier || tier === "public-link") return;
 
     const availableCount = userKeys[tier] || 0;
     if (availableCount < 1) return showToast(`Bạn chưa có Key ${KEY_TIER_META[tier].label}. Hãy giữ chuỗi Manifest ${KEY_TIER_META[tier].threshold} ngày rồi đổi Key nhé! 🔑`, "error");
@@ -397,7 +397,8 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
   // --- HÀM RENDER CHUNG CHO THẺ NHÂN VẬT ---
   const renderCharacterCard = (char: Character) => {
     const ext = char as CharacterExt;
-    const hasKeyGate = !!ext.requiredKeyTier;
+    const hasKeyGate = !!ext.requiredKeyTier && ext.requiredKeyTier !== "public-link";
+    const isPublicLink = ext.requiredKeyTier === "public-link";
     const isKeyUnlocked = hasKeyGate && unlockedIds.includes(char.id);
 
     return (
@@ -445,11 +446,18 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
           })()}
 
           {hasKeyGate && (
-            <div className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-[9px] font-bold max-w-full ${isKeyUnlocked ? "text-emerald-600 bg-emerald-50 border-emerald-200" : KEY_TIER_META[ext.requiredKeyTier!].badge}`}>
+            <div className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-[9px] font-bold max-w-full ${isKeyUnlocked ? "text-emerald-600 bg-emerald-50 border-emerald-200" : KEY_TIER_META[ext.requiredKeyTier as KeyTier].badge}`}>
               {isKeyUnlocked ? <Unlock className="w-3 h-3 flex-shrink-0" /> : <Lock className="w-3 h-3 flex-shrink-0" />}
               <span className="truncate">
-                {isKeyUnlocked ? "Đã mở khoá" : `${KEY_TIER_META[ext.requiredKeyTier!].emoji} Cần Key ${KEY_TIER_META[ext.requiredKeyTier!].label}`}
+                {isKeyUnlocked ? "Đã mở khoá" : `${KEY_TIER_META[ext.requiredKeyTier as KeyTier].emoji} Cần Key ${KEY_TIER_META[ext.requiredKeyTier as KeyTier].label}`}
               </span>
+            </div>
+          )}
+
+          {isPublicLink && (
+            <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-[9px] font-bold max-w-full text-indigo-600 bg-indigo-50 border-indigo-200">
+              <ExternalLink className="w-3 h-3 flex-shrink-0" />
+              <span className="truncate">Có sẵn Link nhận thưởng</span>
             </div>
           )}
         </div>
@@ -622,16 +630,17 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                 {/* Yêu cầu Key hoặc Public Link */}
                 <div className="col-span-1 md:col-span-2 flex flex-col gap-2 pt-3 border-t border-pink-100">
                   <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
-                    <Lock className="w-3.5 h-3.5 text-purple-400" /> Cài đặt Mở Khoá / Public Link (Tuỳ chọn)
+                    <Lock className="w-3.5 h-3.5 text-purple-400" /> Cài đặt Mở Khoá / Public Link
                   </label>
-                  <select value={formRequiredKeyTier} onChange={(e) => setFormRequiredKeyTier(e.target.value as KeyTier | "")} className="bg-slate-50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white">
-                    <option value="">Không yêu cầu Key (Mở tự do hoặc dùng Trạng thái)</option>
+                  <select value={formRequiredKeyTier} onChange={(e) => setFormRequiredKeyTier(e.target.value as KeyTier | "public-link" | "")} className="bg-slate-50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white">
+                    <option value="">Không yêu cầu (Mở tự do / Bình thường)</option>
+                    <option value="public-link">🌐 Public Link (Không cần Key - Hiện nút Nhận Link ở Profile)</option>
                     {KEY_TIER_ORDER.map((tier) => (
                       <option key={tier} value={tier}>🔒 Cần Key {KEY_TIER_META[tier].label} ({KEY_TIER_META[tier].threshold} ngày streak)</option>
                     ))}
                   </select>
                   {formRequiredKeyTier && (
-                    <input type="text" placeholder="Link nhận thưởng (nếu user dùng Key mở khoá thành công)..." value={formUnlockRewardLink} onChange={(e) => setFormUnlockRewardLink(e.target.value)} className="bg-slate-50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white" />
+                    <input type="text" placeholder={formRequiredKeyTier === "public-link" ? "Nhập link trỏ tới character (Google Drive, Byvn, Discord,...)" : "Link phần thưởng khi user dùng Key mở khoá..."} value={formUnlockRewardLink} onChange={(e) => setFormUnlockRewardLink(e.target.value)} className="bg-slate-50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white" />
                   )}
                 </div>
 
@@ -721,7 +730,8 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
 
               {(() => {
                 const ext = selectedCharacter as CharacterExt;
-                const hasKeyGate = !!ext.requiredKeyTier;
+                const hasKeyGate = !!ext.requiredKeyTier && ext.requiredKeyTier !== "public-link";
+                const isPublicLink = ext.requiredKeyTier === "public-link";
 
                 return (
                   <>
@@ -739,8 +749,20 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                       );
                     })()}
 
+                    {/* Nếu là Public Link thì hiển thị nút Nhận Link trực tiếp trong profile */}
+                    {isPublicLink && ext.unlockRewardLink && (
+                      <div className="rounded-2xl border border-indigo-200 bg-indigo-50/60 p-4 mb-4 text-center">
+                        <div className="flex flex-col gap-2 items-center">
+                          <span className="text-xs font-bold text-indigo-700">✨ Nhân vật này có sẵn đường dẫn kết nối riêng!</span>
+                          <a href={ext.unlockRewardLink} target="_blank" rel="noreferrer" className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm">
+                            <ExternalLink className="w-3.5 h-3.5" /> Nhận Link Ngay
+                          </a>
+                        </div>
+                      </div>
+                    )}
+
                     {hasKeyGate && (() => {
-                      const tier = ext.requiredKeyTier!;
+                      const tier = ext.requiredKeyTier as KeyTier;
                       const meta = KEY_TIER_META[tier];
                       const isUnlocked = unlockedIds.includes(selectedCharacter.id);
                       const availableCount = userKeys[tier] || 0;
