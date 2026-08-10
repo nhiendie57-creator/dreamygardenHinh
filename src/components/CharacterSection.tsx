@@ -457,7 +457,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
           {isPublicLink && (
             <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-[9px] font-bold max-w-full text-indigo-600 bg-indigo-50 border-indigo-200">
               <ExternalLink className="w-3 h-3 flex-shrink-0" />
-              <span className="truncate">Có sẵn Link nhận thưởng</span>
+              <span className="truncate">ĐÃ CÓ LINK</span>
             </div>
           )}
         </div>
@@ -753,7 +753,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                     {isPublicLink && ext.unlockRewardLink && (
                       <div className="rounded-2xl border border-indigo-200 bg-indigo-50/60 p-4 mb-4 text-center">
                         <div className="flex flex-col gap-2 items-center">
-                          <span className="text-xs font-bold text-indigo-700">✨ Nhân vật này có sẵn đường dẫn kết nối riêng!</span>
+                          <span className="text-xs font-bold text-indigo-700">✨ Bản thảo đang chờ bạn hoàn thành...</span>
                           <a href={ext.unlockRewardLink} target="_blank" rel="noreferrer" className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm">
                             <ExternalLink className="w-3.5 h-3.5" /> Nhận Link Ngay
                           </a>
