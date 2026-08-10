@@ -496,7 +496,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
       <div className="flex justify-between items-center flex-wrap gap-2">
         <h2 className="text-2xl font-display text-white text-glow-pearl flex items-center gap-2">
           <Sparkles className="w-5 h-5 text-pink-400 animate-spin-slow" />
-          Nhân Vật Nhiệm Màu
+          Bản Thảo Đang Chờ Bạn
         </h2>
         <div className="flex items-center gap-2">
           <button
@@ -554,7 +554,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
             <div className="h-[1px] flex-1 bg-gradient-to-r from-transparent to-indigo-400/70" />
             <h3 className="text-lg md:text-xl font-display font-extrabold bg-gradient-to-r from-indigo-700 via-purple-700 to-blue-800 bg-clip-text text-transparent flex items-center gap-2 drop-shadow-[0_2px_4px_rgba(255,255,255,0.8)] uppercase tracking-wider">
               <Sparkles className="w-5 h-5 text-indigo-700" />
-              Dàn Nhân Vật Chính thức
+              Dàn Con Cưng Chính thức
             </h3>
             <div className="h-[1px] flex-1 bg-gradient-to-l from-transparent to-indigo-400/70" />
           </div>
