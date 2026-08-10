@@ -16,7 +16,7 @@ interface CharacterSectionProps {
   showToast: (message: string, type?: "success" | "error" | "info") => void;
 }
 
-// --- (1) Trạng thái tiến độ của nhân vật ---
+// --- Trạng thái tiến độ của nhân vật ---
 type CharacterStatus = "in-progress" | "unlocked" | "locked";
 
 const CHARACTER_STATUS_META: Record<
@@ -43,21 +43,19 @@ const CHARACTER_STATUS_META: Record<
   },
 };
 
-// --- (2) Mạch truyện bổ sung / ngoại truyện ---
 interface StoryArc {
   id: string;
   title: string;
   content: string;
 }
 
-// --- (3) Vibe Gallery ---
 interface GalleryImage {
   id: string;
   url: string;
   caption?: string;
 }
 
-// --- (4) Hệ thống Key ---
+// --- Hệ thống Key ---
 const KEY_TIER_META: Record<
   KeyTier,
   { label: string; threshold: number; emoji: string; badge: string }
@@ -297,11 +295,17 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
     try {
       const parsedTags = formTags.split(",").map((t) => t.trim()).filter((t) => t.length > 0);
       const characterData = {
-        name: formName.trim(), role: formRole.trim(), avatar: formAvatar, plot: formPlot.trim(),
+        name: formName.trim(),
+        role: formRole.trim(),
+        avatar: formAvatar,
+        plot: formPlot.trim(),
         tags: parsedTags.length > 0 ? parsedTags : ["Dreamy"],
         likes: editingId ? (characters.find((c) => c.id === editingId)?.likes || 0) : 0,
-        status: formStatus, statusReason: formStatus === "locked" ? formStatusReason.trim() : "",
-        storyArcs: formStoryArcs, gallery: formGallery, requiredKeyTier: formRequiredKeyTier || null,
+        status: formStatus,
+        statusReason: formStatus === "locked" ? formStatusReason.trim() : "",
+        storyArcs: formStoryArcs,
+        gallery: formGallery,
+        requiredKeyTier: formRequiredKeyTier || null,
         unlockRewardLink: formRequiredKeyTier ? formUnlockRewardLink.trim() : "",
       };
 
@@ -345,7 +349,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
   };
 
   const handleUnlockWithKey = async (character: Character) => {
-    if (!currentUser) return showToast("Vui lòng đăng nhập để dùng chìa khoá mở khoá nhân vật!", "info");
+    if (!currentUser) return showToast("Vui lòng đăng nhập để dùng Key mở khoá nhân vật!", "info");
     const ext = character as CharacterExt;
     const tier = ext.requiredKeyTier;
     if (!tier) return;
@@ -487,8 +491,12 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
           Nhân Vật Nhiệm Màu
         </h2>
         <div className="flex items-center gap-2">
-          <button onClick={() => setShowInventory(true)} className="px-4 py-2 bg-white/40 hover:bg-white/60 text-slate-700 rounded-full text-xs font-bold shadow-sm hover:scale-105 transition-all flex items-center gap-1.5 border border-white/50">
-            <Backpack className="w-3.5 h-3.5 text-purple-500" /> Túi Đồ
+          <button
+            onClick={() => setShowInventory(true)}
+            className="px-4 py-2 bg-white/40 hover:bg-white/60 text-slate-700 rounded-full text-xs font-bold shadow-sm hover:scale-105 transition-all flex items-center gap-1.5 border border-white/50"
+          >
+            <Backpack className="w-3.5 h-3.5 text-purple-500" />
+            Túi Đồ
           </button>
           {isAdmin && (
             <button onClick={() => { setShowForm(!showForm); if (showForm) setEditingId(null); }} className="px-4 py-2 bg-gradient-to-r from-pink-400 to-purple-400 hover:from-pink-500 hover:to-purple-500 text-white rounded-full text-xs font-bold shadow-md hover:scale-105 transition-all flex items-center gap-1.5">
@@ -607,22 +615,23 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                     <option value="locked">Đã khoá</option>
                   </select>
                   {formStatus === "locked" && (
-                    <input type="text" placeholder="Lý do khoá (ví dụ: chưa đủ điều kiện mở khoá...)" value={formStatusReason} onChange={(e) => setFormStatusReason(e.target.value)} className="bg-slate-50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white" />
+                    <input type="text" placeholder="Lý do khoá (ví dụ: đang cập nhật...)" value={formStatusReason} onChange={(e) => setFormStatusReason(e.target.value)} className="bg-slate-50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white" />
                   )}
                 </div>
 
+                {/* Yêu cầu Key hoặc Public Link */}
                 <div className="col-span-1 md:col-span-2 flex flex-col gap-2 pt-3 border-t border-pink-100">
                   <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
-                    <Lock className="w-3.5 h-3.5 text-purple-400" /> Yêu Cầu Key Để Mở (tuỳ chọn)
+                    <Lock className="w-3.5 h-3.5 text-purple-400" /> Cài đặt Mở Khoá / Public Link (Tuỳ chọn)
                   </label>
                   <select value={formRequiredKeyTier} onChange={(e) => setFormRequiredKeyTier(e.target.value as KeyTier | "")} className="bg-slate-50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white">
-                    <option value="">Không yêu cầu (dùng Trạng Thái phía trên)</option>
+                    <option value="">Không yêu cầu Key (Mở tự do hoặc dùng Trạng thái)</option>
                     {KEY_TIER_ORDER.map((tier) => (
-                      <option key={tier} value={tier}>{KEY_TIER_META[tier].emoji} Key {KEY_TIER_META[tier].label} ({KEY_TIER_META[tier].threshold} ngày streak)</option>
+                      <option key={tier} value={tier}>🔒 Cần Key {KEY_TIER_META[tier].label} ({KEY_TIER_META[tier].threshold} ngày streak)</option>
                     ))}
                   </select>
                   {formRequiredKeyTier && (
-                    <input type="text" placeholder="Link phần thưởng (Discord/Drive/...) khi user dùng Key mở khoá" value={formUnlockRewardLink} onChange={(e) => setFormUnlockRewardLink(e.target.value)} className="bg-slate-50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white" />
+                    <input type="text" placeholder="Link nhận thưởng (nếu user dùng Key mở khoá thành công)..." value={formUnlockRewardLink} onChange={(e) => setFormUnlockRewardLink(e.target.value)} className="bg-slate-50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white" />
                   )}
                 </div>
 
@@ -846,6 +855,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
         )}
       </AnimatePresence>
 
+      {/* Túi Đồ Modal */}
       <AnimatePresence>
         {showInventory && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-900/30 backdrop-blur-md" onClick={() => setShowInventory(false)}>
