@@ -38,7 +38,9 @@ export default function BackgroundOverlay({ customBgUrl }: BackgroundOverlayProp
   }, [reduceEffects]);
 
   return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+    // Đã thay đổi "absolute" thành "fixed w-full h-full" ở dòng dưới để khóa chặt hình nền
+    <div className="fixed inset-0 w-full h-full overflow-hidden pointer-events-none z-0">
+      
       {/* Nền màu hoặc ảnh nền Custom */}
       {customBgUrl ? (
         <div
