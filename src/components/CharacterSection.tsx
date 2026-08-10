@@ -513,12 +513,12 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
       {inProgressChars.length > 0 && (
         <div className="mb-10 w-full">
           <div className="flex items-center gap-3 mb-6">
-            <div className="h-[1px] flex-1 bg-gradient-to-r from-transparent to-amber-300/50" />
-            <h3 className="text-lg md:text-xl font-display text-amber-500 flex items-center gap-2 drop-shadow-sm uppercase tracking-wider">
-              <Milestone className="w-5 h-5 animate-bounce" />
+            <div className="h-[1px] flex-1 bg-gradient-to-r from-transparent to-indigo-400/70" />
+            <h3 className="text-lg md:text-xl font-display font-extrabold bg-gradient-to-r from-indigo-700 via-purple-700 to-blue-800 bg-clip-text text-transparent flex items-center gap-2 drop-shadow-[0_2px_4px_rgba(255,255,255,0.8)] uppercase tracking-wider">
+              <Milestone className="w-5 h-5 text-indigo-700 animate-bounce" />
               Đang Thai Nghén Plot
             </h3>
-            <div className="h-[1px] flex-1 bg-gradient-to-l from-transparent to-amber-300/50" />
+            <div className="h-[1px] flex-1 bg-gradient-to-l from-transparent to-indigo-400/70" />
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -535,12 +535,12 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
       <div className="w-full">
         {inProgressChars.length > 0 && regularChars.length > 0 && (
           <div className="flex items-center gap-3 mb-6 mt-4">
-            <div className="h-[1px] flex-1 bg-gradient-to-r from-transparent to-pink-300/50" />
-            <h3 className="text-lg md:text-xl font-display text-pink-500 flex items-center gap-2 drop-shadow-sm uppercase tracking-wider">
-              <Sparkles className="w-5 h-5" />
+            <div className="h-[1px] flex-1 bg-gradient-to-r from-transparent to-indigo-400/70" />
+            <h3 className="text-lg md:text-xl font-display font-extrabold bg-gradient-to-r from-indigo-700 via-purple-700 to-blue-800 bg-clip-text text-transparent flex items-center gap-2 drop-shadow-[0_2px_4px_rgba(255,255,255,0.8)] uppercase tracking-wider">
+              <Sparkles className="w-5 h-5 text-indigo-700" />
               Dàn Nhân Vật Chính thức
             </h3>
-            <div className="h-[1px] flex-1 bg-gradient-to-l from-transparent to-pink-300/50" />
+            <div className="h-[1px] flex-1 bg-gradient-to-l from-transparent to-indigo-400/70" />
           </div>
         )}
 
