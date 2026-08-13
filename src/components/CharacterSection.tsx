@@ -8,6 +8,10 @@ import {
   Lock, Unlock, Clock, BookOpen, Images, ExternalLink, Backpack, Milestone
 } from "lucide-react";
 import ImageCropModal from "./ImageCropModal";
+// Dùng lại hook isMobile sẵn có của project để tắt animation vô hạn trên mobile.
+// LƯU Ý: chỉnh lại đường dẫn import bên dưới cho khớp vị trí thật của
+// useIsMobile.ts trong project nếu khác (hiện đang giả định "../hooks/useIsMobile").
+import { useIsMobile } from "../hooks/useIsMobile";
 
 interface CharacterSectionProps {
   isAdmin: boolean;
@@ -86,6 +90,11 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
   const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
   const [showInventory, setShowInventory] = useState(false);
   const [unlockingId, setUnlockingId] = useState<string | null>(null);
+
+  // Cờ isMobile dùng để tắt các animation vô hạn (wave-rotate + liquid-border)
+  // trên avatar — đây là 2 animation gây lag nặng nhất khi nhân bản theo số
+  // lượng nhân vật hiển thị cùng lúc.
+  const isMobile = useIsMobile();
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -423,8 +432,18 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
         )}
 
         <div className="relative w-32 h-32 mb-4 select-none">
-          <div className="absolute -inset-1.5 rounded-full bg-gradient-to-tr from-green-300 via-pink-300 to-purple-300 blur-sm animate-wave-rotate opacity-75" />
-          <div className="absolute -inset-1 rounded-full liquid-border opacity-90" />
+          {/* 2 animation vô hạn (wave-rotate blur + liquid-border) — nhân theo
+              số lượng thẻ hiển thị cùng lúc, đây là điểm gây lag nặng nhất trên
+              mobile. Tắt hẳn trên mobile, thay bằng viền tĩnh đơn giản. */}
+          {!isMobile && (
+            <>
+              <div className="absolute -inset-1.5 rounded-full bg-gradient-to-tr from-green-300 via-pink-300 to-purple-300 blur-sm animate-wave-rotate opacity-75" />
+              <div className="absolute -inset-1 rounded-full liquid-border opacity-90" />
+            </>
+          )}
+          {isMobile && (
+            <div className="absolute -inset-1 rounded-full bg-gradient-to-tr from-green-300 via-pink-300 to-purple-300 opacity-70" />
+          )}
           <div className="relative w-full h-full rounded-full overflow-hidden border-2 border-white bg-slate-100 z-10 shadow-inner">
             <img src={char.avatar} alt={char.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" referrerPolicy="no-referrer" />
           </div>
