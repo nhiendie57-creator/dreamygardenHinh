@@ -79,13 +79,17 @@ export default function BackgroundOverlay({ customBgUrl }: BackgroundOverlayProp
         />
       ))}
 
-      {/* Lớp sương mờ ảo - GIỮ TĨNH (đã bỏ animate x/y liên tục để đỡ tốn GPU khi kết hợp blur lớn) */}
+      {/* Lớp sương mờ ảo — GIỮ TĨNH, đã giảm radius blur từ 60px/70px xuống
+          28px/30px. Đây là 2 lớp filter blur nặng nhất trong overlay (blur
+          diện tích lớn phủ gần hết màn hình), radius càng lớn thì trình
+          duyệt càng tốn nhiều để tính mỗi frame composite lại, nên giảm
+          radius là cách giảm tải trực tiếp mà không cần tắt hẳn hiệu ứng. */}
       <div
         className="absolute -inset-[10%] rounded-full"
         style={{
           background:
             "radial-gradient(circle at 30% 40%, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.15) 40%, transparent 70%)",
-          filter: "blur(60px)",
+          filter: "blur(28px)",
           opacity: 0.62,
         }}
       />
@@ -94,11 +98,21 @@ export default function BackgroundOverlay({ customBgUrl }: BackgroundOverlayProp
         style={{
           background:
             "radial-gradient(circle at 70% 65%, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.12) 45%, transparent 75%)",
-          filter: "blur(70px)",
+          filter: "blur(30px)",
           opacity: 0.52,
         }}
       />
-      <div className="absolute inset-0 bg-white/10 backdrop-blur-[2px]" />
+
+      {/* Lớp phủ trắng mờ trên cùng — backdrop-blur-[2px] là lớp lag nặng nhất
+          vì nó phủ TOÀN màn hình và phải blur mọi thứ bên dưới liên tục (khác
+          với 2 lớp filter blur ở trên vốn chỉ blur chính bản thân gradient
+          của nó). Bỏ hẳn trên mobile/reduceEffects, bù lại tăng opacity nền
+          trắng lên (10% → 20%) để chữ phía trên vẫn đủ tương phản dễ đọc. */}
+      {reduceEffects ? (
+        <div className="absolute inset-0 bg-white/20" />
+      ) : (
+        <div className="absolute inset-0 bg-white/10 backdrop-blur-[2px]" />
+      )}
     </div>
   );
 }
