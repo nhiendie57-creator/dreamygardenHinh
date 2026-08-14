@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import "./index.css"; 
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "./config/firebase";
 import { UserProfile, TabType } from "./types";
