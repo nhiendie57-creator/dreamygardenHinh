@@ -1,6 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 /* 1. TOÀN CỤC & TỐI ƯU MOBILE (Giúp chống tràn, chống che nội dung) */
 html, body {
