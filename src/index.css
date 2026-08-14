@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* 11. REDUCE-FX: áp dụng khi useIsMobile trả về true (màn nhỏ HOẶC CPU ít nhân)
    Ghi đè glass-panel + tắt animation nặng, bù opacity để chữ vẫn đọc rõ */
 .reduce-fx .glass-panel {
