@@ -4,6 +4,7 @@ import { db } from "./config/firebase";
 import { UserProfile, TabType } from "./types";
 import { motion, AnimatePresence } from "motion/react";
 import { AlertCircle, CheckCircle, Info } from "lucide-react";
+import { useIsMobile } from "./hooks/useIsMobile"; // ⚠️ chị check lại đúng path file hook
 
 // Components
 import BackgroundOverlay from "./components/BackgroundOverlay";
@@ -29,6 +30,7 @@ export default function App() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [customBgUrl, setCustomBgUrl] = useState<string | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const isMobile = useIsMobile(); // true nếu màn nhỏ HOẶC CPU yếu (đã xử lý trong hook)
 
   const showToast = (message: string, type: "success" | "error" | "info" = "info") => {
     const id = Date.now() + Math.random();
@@ -74,7 +76,11 @@ export default function App() {
   };
 
   return (
-    <div className="relative min-h-screen w-full select-none overflow-x-hidden flex flex-col font-sans-dreamy">
+    <div
+      className={`relative min-h-screen w-full select-none overflow-x-hidden flex flex-col font-sans-dreamy${
+        isMobile ? " reduce-fx" : ""
+      }`}
+    >
       <BackgroundOverlay customBgUrl={customBgUrl} />
 
       <div className="fixed top-24 right-6 z-[9999] flex flex-col gap-2 max-w-sm w-full pointer-events-none">
