@@ -5,7 +5,8 @@ import { Character, UserProfile, KeyTier, UserKeys } from "../types";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Heart, Plus, Trash2, Edit2, X, Eye, Sparkles, Upload, Save,
-  Lock, Unlock, Clock, BookOpen, Images, ExternalLink, Backpack, Milestone
+  Lock, Unlock, Clock, BookOpen, Images, ExternalLink, Backpack, Milestone,
+  MousePointerClick, KeyRound
 } from "lucide-react";
 import ImageCropModal from "./ImageCropModal";
 // Dùng lại hook isMobile sẵn có của project để tắt animation vô hạn trên mobile.
@@ -80,6 +81,8 @@ type CharacterExt = Character & {
   requiredKeyTier?: KeyTier | "public-link" | null;
   unlockRewardLink?: string;
   views?: number;
+  linkClicks?: number;
+  keyRedeemCount?: number;
 };
 
 const DEFAULT_CHARACTERS: Character[] = [];
@@ -194,6 +197,16 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
     try {
       const charRef = doc(db, "characters", character.id);
       await updateDoc(charRef, { views: increment(1) });
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleLinkClick = async (character: Character) => {
+    if (character.id.startsWith("default-")) return;
+    try {
+      const charRef = doc(db, "characters", character.id);
+      await updateDoc(charRef, { linkClicks: increment(1) });
     } catch (err) {
       console.error(err);
     }
@@ -374,6 +387,11 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
       const userId = currentUser.username?.toLowerCase() || currentUser.uid || currentUser.id || "unknown_user";
       await setDoc(doc(db, "users", userId), { keys: updatedKeys, unlockedCharacterIds: updatedUnlockedIds }, { merge: true });
       onUpdateUser({ ...currentUser, keys: updatedKeys, unlockedCharacterIds: updatedUnlockedIds });
+      try {
+        await updateDoc(doc(db, "characters", character.id), { keyRedeemCount: increment(1) });
+      } catch (err) {
+        console.error(err);
+      }
       showToast(`Đã dùng Key ${KEY_TIER_META[tier].emoji} ${KEY_TIER_META[tier].label} mở khoá ${character.name}! 🎉`, "success");
     } catch (err) {
       console.error(err);
@@ -754,6 +772,18 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
 
                 return (
                   <>
+                    {isAdmin && (hasKeyGate || isPublicLink) && (
+                      <div className="flex items-center justify-center gap-4 mb-3 text-[10px] font-bold text-slate-500">
+                        <span className="flex items-center gap-1">
+                          <MousePointerClick className="w-3.5 h-3.5 text-indigo-400" /> {ext.linkClicks || 0} lượt bấm link
+                        </span>
+                        {hasKeyGate && (
+                          <span className="flex items-center gap-1">
+                            <KeyRound className="w-3.5 h-3.5 text-purple-400" /> {ext.keyRedeemCount || 0} lượt đổi Key
+                          </span>
+                        )}
+                      </div>
+                    )}
                     {ext.status && (() => {
                       const meta = CHARACTER_STATUS_META[ext.status!];
                       const Icon = meta.icon;
@@ -773,7 +803,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                       <div className="rounded-2xl border border-indigo-200 bg-indigo-50/60 p-4 mb-4 text-center">
                         <div className="flex flex-col gap-2 items-center">
                           <span className="text-xs font-bold text-indigo-700">✨ Bản thảo đang chờ bạn hoàn thành...</span>
-                          <a href={ext.unlockRewardLink} target="_blank" rel="noreferrer" className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm">
+                          <a href={ext.unlockRewardLink} target="_blank" rel="noreferrer" onClick={() => handleLinkClick(selectedCharacter)} className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm">
                             <ExternalLink className="w-3.5 h-3.5" /> Nhận Link Ngay
                           </a>
                         </div>
@@ -792,7 +822,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                             <div className="flex flex-col gap-2 items-center text-center">
                               <span className="text-xs font-bold text-emerald-700">🎉 Đã mở khoá bằng {meta.emoji} Key {meta.label}</span>
                               {ext.unlockRewardLink && (
-                                <a href={ext.unlockRewardLink} target="_blank" rel="noreferrer" className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-full text-xs font-bold flex items-center gap-1.5 transition-colors">
+                                <a href={ext.unlockRewardLink} target="_blank" rel="noreferrer" onClick={() => handleLinkClick(selectedCharacter)} className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-full text-xs font-bold flex items-center gap-1.5 transition-colors">
                                   <ExternalLink className="w-3.5 h-3.5" /> Nhận Link Ngay
                                 </a>
                               )}
