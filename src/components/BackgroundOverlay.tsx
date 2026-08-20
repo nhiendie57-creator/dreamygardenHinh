@@ -13,9 +13,11 @@ interface Sparkle {
 
 interface BackgroundOverlayProps {
   customBgUrl: string | null;
+  isDarkMode?: boolean;
+  darkBgUrl?: string | null;
 }
 
-export default function BackgroundOverlay({ customBgUrl }: BackgroundOverlayProps) {
+export default function BackgroundOverlay({ customBgUrl, isDarkMode = false, darkBgUrl = null }: BackgroundOverlayProps) {
   const isMobile = useIsMobile();
   const prefersReducedMotion = useReducedMotion();
   // Tắt / giảm hiệu ứng nặng trên mobile hoặc khi hệ điều hành yêu cầu giảm animation
@@ -37,30 +39,37 @@ export default function BackgroundOverlay({ customBgUrl }: BackgroundOverlayProp
     setSparkles(initialSparkles);
   }, [reduceEffects]);
 
+  // Ảnh nền đang hiệu lực tuỳ theo chế độ: dark mode ưu tiên darkBgUrl,
+  // sáng mode dùng customBgUrl như cũ.
+  const activeBgUrl = isDarkMode ? darkBgUrl : customBgUrl;
+
   return (
     // Đã thay đổi "absolute" thành "fixed w-full h-full" ở dòng dưới để khóa chặt hình nền
     <div className="fixed inset-0 w-full h-full overflow-hidden pointer-events-none z-0">
       
-      {/* Nền màu hoặc ảnh nền Custom */}
-      {customBgUrl ? (
+      {/* Nền màu hoặc ảnh nền Custom (đổi theo chế độ sáng/tối) */}
+      {activeBgUrl ? (
         <div
           className="absolute inset-0 bg-cover bg-center transition-all duration-1000 ease-in-out scale-105"
-          style={{ backgroundImage: `url(${customBgUrl})` }}
+          style={{ backgroundImage: `url(${activeBgUrl})` }}
         />
       ) : (
         <div
           className="absolute inset-0 transition-all duration-1000 ease-in-out"
           style={{
-            background: "linear-gradient(135deg, #E6E6FA 0%, #FFD1DC 50%, #BCECAC 100%)",
+            background: isDarkMode
+              ? "linear-gradient(135deg, #1e1b4b 0%, #3b0764 50%, #0f172a 100%)"
+              : "linear-gradient(135deg, #E6E6FA 0%, #FFD1DC 50%, #BCECAC 100%)",
           }}
         />
       )}
 
-      {/* Những mảng mây màu tĩnh ở góc - KHÔNG animate, nhẹ máy */}
-      <div className="absolute -top-12 -left-12 w-96 h-48 bg-white/40 blur-3xl rounded-full" />
-      <div className="absolute top-24 -right-16 w-[450px] h-64 bg-pink-100/40 blur-3xl rounded-full" />
-      <div className="absolute -bottom-20 left-1/4 w-[500px] h-64 bg-blue-100/40 blur-3xl rounded-full" />
-      <div className="absolute bottom-1/3 -left-16 w-80 h-48 bg-purple-100/30 blur-3xl rounded-full" />
+      {/* Những mảng mây màu tĩnh ở góc - KHÔNG animate, nhẹ máy. Đổi tông màu
+          tối hơn khi ở dark mode để không bị "chói" trên nền tối. */}
+      <div className={`absolute -top-12 -left-12 w-96 h-48 blur-3xl rounded-full ${isDarkMode ? "bg-indigo-900/30" : "bg-white/40"}`} />
+      <div className={`absolute top-24 -right-16 w-[450px] h-64 blur-3xl rounded-full ${isDarkMode ? "bg-purple-900/30" : "bg-pink-100/40"}`} />
+      <div className={`absolute -bottom-20 left-1/4 w-[500px] h-64 blur-3xl rounded-full ${isDarkMode ? "bg-blue-950/30" : "bg-blue-100/40"}`} />
+      <div className={`absolute bottom-1/3 -left-16 w-80 h-48 blur-3xl rounded-full ${isDarkMode ? "bg-violet-950/25" : "bg-purple-100/30"}`} />
 
       {/* Hiệu ứng hạt sáng lấp lánh - CSS animation thuần (transform/opacity),
           box-shadow TĨNH (khai báo 1 lần trong class, không animate mỗi frame) */}
@@ -79,18 +88,15 @@ export default function BackgroundOverlay({ customBgUrl }: BackgroundOverlayProp
         />
       ))}
 
-      {/* Lớp sương mờ ảo — GIỮ TĨNH, đã giảm radius blur từ 60px/70px xuống
-          28px/30px. Đây là 2 lớp filter blur nặng nhất trong overlay (blur
-          diện tích lớn phủ gần hết màn hình), radius càng lớn thì trình
-          duyệt càng tốn nhiều để tính mỗi frame composite lại, nên giảm
-          radius là cách giảm tải trực tiếp mà không cần tắt hẳn hiệu ứng. */}
+      {/* Lớp sương mờ ảo — GIỮ TĨNH, radius blur 28px/30px. Giảm opacity ở
+          dark mode để tránh làm nền tối bị "trắng loá" chỗ giữa. */}
       <div
         className="absolute -inset-[10%] rounded-full"
         style={{
           background:
             "radial-gradient(circle at 30% 40%, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.15) 40%, transparent 70%)",
           filter: "blur(28px)",
-          opacity: 0.62,
+          opacity: isDarkMode ? 0.25 : 0.62,
         }}
       />
       <div
@@ -99,19 +105,16 @@ export default function BackgroundOverlay({ customBgUrl }: BackgroundOverlayProp
           background:
             "radial-gradient(circle at 70% 65%, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.12) 45%, transparent 75%)",
           filter: "blur(30px)",
-          opacity: 0.52,
+          opacity: isDarkMode ? 0.2 : 0.52,
         }}
       />
 
-      {/* Lớp phủ trắng mờ trên cùng — backdrop-blur-[2px] là lớp lag nặng nhất
-          vì nó phủ TOÀN màn hình và phải blur mọi thứ bên dưới liên tục (khác
-          với 2 lớp filter blur ở trên vốn chỉ blur chính bản thân gradient
-          của nó). Bỏ hẳn trên mobile/reduceEffects, bù lại tăng opacity nền
-          trắng lên (10% → 20%) để chữ phía trên vẫn đủ tương phản dễ đọc. */}
+      {/* Lớp phủ trên cùng — trắng mờ ở light mode, tối mờ ở dark mode để giữ
+          độ tương phản đúng hướng cho từng chế độ. */}
       {reduceEffects ? (
-        <div className="absolute inset-0 bg-white/20" />
+        <div className={`absolute inset-0 ${isDarkMode ? "bg-slate-950/35" : "bg-white/20"}`} />
       ) : (
-        <div className="absolute inset-0 bg-white/10 backdrop-blur-[2px]" />
+        <div className={`absolute inset-0 backdrop-blur-[2px] ${isDarkMode ? "bg-slate-950/25" : "bg-white/10"}`} />
       )}
     </div>
   );
