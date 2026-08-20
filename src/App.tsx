@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
 import "./index.css"; 
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "./config/firebase";
 import { UserProfile, TabType } from "./types";
 import { motion, AnimatePresence } from "motion/react";
-import { AlertCircle, CheckCircle, Info } from "lucide-react";
+import { AlertCircle, CheckCircle, Info, Moon, Sun } from "lucide-react";
 import { useIsMobile } from "./hooks/useIsMobile"; // ⚠️ chị check lại đúng path file hook
 
 // Components
@@ -25,11 +25,36 @@ interface Toast {
   type: "success" | "error" | "info";
 }
 
+// UserProfile hiện chưa có field darkMode trong types.ts, mở rộng cục bộ
+// giống cách các component khác đã làm (CharacterExt, UserProfileExt...).
+type UserProfileExt = UserProfile & { darkMode?: boolean };
+
+// --- Đọc tab & id nhân vật từ URL lúc app vừa mở, để hỗ trợ link riêng
+// cho từng nhân vật, ví dụ: ?tab=characters&character=abc123
+const VALID_TABS: TabType[] = ["home", "characters", "confession", "manifestation", "garden", "socials"];
+
+const getInitialTab = (): TabType => {
+  if (typeof window === "undefined") return "home";
+  const params = new URLSearchParams(window.location.search);
+  const tab = params.get("tab");
+  if (tab && (VALID_TABS as string[]).includes(tab)) return tab as TabType;
+  if (params.get("character")) return "characters";
+  return "home";
+};
+
+const getInitialCharacterId = (): string | null => {
+  if (typeof window === "undefined") return null;
+  return new URLSearchParams(window.location.search).get("character");
+};
+
 export default function App() {
-  const [activeTab, setActiveTab] = useState<TabType>("home");
+  const [activeTab, setActiveTab] = useState<TabType>(getInitialTab);
+  const [initialCharacterId] = useState<string | null>(getInitialCharacterId);
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [customBgUrl, setCustomBgUrl] = useState<string | null>(null);
+  const [darkBgUrl, setDarkBgUrl] = useState<string | null>(null);
+  const [isDarkMode, setIsDarkMode] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const isMobile = useIsMobile(); // true nếu màn nhỏ HOẶC CPU yếu (đã xử lý trong hook)
 
@@ -52,6 +77,9 @@ export default function App() {
           if (data && data.backgroundImage !== undefined) {
             setCustomBgUrl(data.backgroundImage);
           }
+          if (data && data.darkBackgroundImage !== undefined) {
+            setDarkBgUrl(data.darkBackgroundImage);
+          }
         }
       } catch (err) {
         console.warn("Could not load background custom settings, fallback to gradient:", err);
@@ -64,11 +92,14 @@ export default function App() {
   const handleLogin = (user: UserProfile, adminStatus: boolean) => {
     setCurrentUser(user);
     setIsAdmin(adminStatus);
+    // Khôi phục đúng chế độ tối/sáng mà tài khoản này đã lưu trước đó
+    setIsDarkMode(!!(user as UserProfileExt).darkMode);
   };
 
   const handleLogout = () => {
     setCurrentUser(null);
     setIsAdmin(false);
+    setIsDarkMode(false);
   };
 
   const handleUpdateUser = (updatedUser: UserProfile) => {
@@ -76,13 +107,37 @@ export default function App() {
     localStorage.setItem("dreamy_user", JSON.stringify(updatedUser));
   };
 
+  const toggleDarkMode = async () => {
+    const next = !isDarkMode;
+    setIsDarkMode(next);
+
+    if (!currentUser) return; // Chưa đăng nhập thì chỉ đổi tạm trên phiên hiện tại
+
+    try {
+      const userId = currentUser.username?.toLowerCase() || currentUser.uid || currentUser.id || "unknown_user";
+      await setDoc(doc(db, "users", userId), { darkMode: next }, { merge: true });
+      handleUpdateUser({ ...currentUser, darkMode: next } as UserProfile);
+    } catch (err) {
+      console.error(err);
+      showToast("Không thể lưu chế độ tối, thử lại nhé!", "error");
+    }
+  };
+
   return (
     <div
       className={`relative min-h-screen w-full select-none overflow-x-hidden flex flex-col font-sans-dreamy${
         isMobile ? " reduce-fx" : ""
-      }`}
+      }${isDarkMode ? " dark-mode" : ""}`}
     >
-      <BackgroundOverlay customBgUrl={customBgUrl} />
+      <BackgroundOverlay customBgUrl={customBgUrl} isDarkMode={isDarkMode} darkBgUrl={darkBgUrl} />
+
+      <button
+        onClick={toggleDarkMode}
+        className="fixed top-6 right-6 z-40 p-2.5 rounded-full glass-panel-ultra border border-white/50 hover:scale-110 active:scale-95 transition-all shadow-md"
+        title={isDarkMode ? "Chuyển sang chế độ sáng" : "Chuyển sang chế độ tối"}
+      >
+        {isDarkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-500" />}
+      </button>
 
       <div className="fixed top-24 right-6 z-[9999] flex flex-col gap-2 max-w-sm w-full pointer-events-none">
         <AnimatePresence>
@@ -149,6 +204,8 @@ export default function App() {
                   showToast={showToast}
                   onUpdateBg={setCustomBgUrl}
                   customBgUrl={customBgUrl}
+                  darkBgUrl={darkBgUrl}
+                  onUpdateDarkBg={setDarkBgUrl}
                 />
               )}
               {activeTab === "characters" && (
@@ -157,6 +214,7 @@ export default function App() {
                   currentUser={currentUser}
                   onUpdateUser={handleUpdateUser}
                   showToast={showToast}
+                  initialCharacterId={initialCharacterId}
                 />
               )}
               {activeTab === "confession" && (
