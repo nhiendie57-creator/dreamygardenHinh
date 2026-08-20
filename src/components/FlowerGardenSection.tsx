@@ -11,6 +11,12 @@ import { Sparkles, Flower2, Lock, ShoppingBag, X, Clock, Star, Info, Gift } from
 //   `UserProfileExt` (giống hệt cách CharacterSection.tsx mở rộng CharacterExt).
 // - Lưu trực tiếp vào users/{userId} bằng setDoc({ merge: true })
 //
+// GHI CHÚ GỘP STREAK (QUAN TRỌNG):
+// - Streak KHÔNG còn lưu riêng ở field `streak` nữa. Từ nay Vườn Hoa dùng
+//   chung field `currentStreak` / `highestStreak` với trang Manifestation
+//   (Manifestation.tsx) — hái hoa và gửi điều ước đều cộng chung vào 1 số,
+//   dùng chung để đổi Key ở trang Manifest.
+//
 // GHI CHÚ MÃ QUÀ TẶNG:
 // - Đọc từ collection Firestore riêng `giftCodes/{code}` (không hard-code
 //   trong source) để chị tự tạo/đổi mã ngay trên Firebase Console. Cấu trúc
@@ -36,7 +42,6 @@ interface GardenState {
 type UserProfileExt = UserProfile & {
   petals?: number;
   garden?: GardenState;
-  streak?: number;
   redeemedGiftCodes?: string[];
 };
 
@@ -364,7 +369,10 @@ export default function FlowerGardenSection({ currentUser, onUpdateUser, showToa
   const ext = currentUser as UserProfileExt | null;
   const garden = ext?.garden || EMPTY_GARDEN;
   const petals = ext?.petals || 0;
-  const streak = ext?.streak || 0;
+  // Streak dùng CHUNG với trang Manifestation — đọc/ghi thẳng vào
+  // currentStreak / highestStreak, không dùng field `streak` riêng nữa.
+  const streak = currentUser?.currentStreak || 0;
+  const highestStreak = currentUser?.highestStreak || 0;
   const userKeys: UserKeys = currentUser?.keys || { bronze: 0, silver: 0, gold: 0, diamond: 0 };
 
   const [showShop, setShowShop] = useState(false);
@@ -424,9 +432,12 @@ export default function FlowerGardenSection({ currentUser, onUpdateUser, showToa
       const data = codeSnap.data() as { streak?: number; petals?: number };
       const bonusStreak = data.streak || 0;
       const bonusPetals = data.petals || 0;
+      const newStreak = streak + bonusStreak;
+      const newHighestStreak = Math.max(highestStreak, newStreak);
 
       await persistAndSync({
-        streak: streak + bonusStreak,
+        currentStreak: newStreak,
+        highestStreak: newHighestStreak,
         petals: petals + bonusPetals,
         redeemedGiftCodes: [...redeemed, code],
       });
@@ -478,9 +489,12 @@ export default function FlowerGardenSection({ currentUser, onUpdateUser, showToa
     setBusy(true);
     const result = rollHarvest("common");
     const newGarden: GardenState = { ...garden, commonPlot: null };
+    const newStreak = streak + result.streak;
+    const newHighestStreak = Math.max(highestStreak, newStreak);
     await persistAndSync({
       garden: newGarden,
-      streak: streak + result.streak,
+      currentStreak: newStreak,
+      highestStreak: newHighestStreak,
       petals: petals + result.petals,
     });
     setHarvestResult(result);
@@ -497,8 +511,10 @@ export default function FlowerGardenSection({ currentUser, onUpdateUser, showToa
     const newShopPlots = [...garden.shopPlots];
     newShopPlots[idx] = null;
     const newGarden: GardenState = { ...garden, shopPlots: newShopPlots };
+    const newStreak = streak + result.streak;
+    const newHighestStreak = Math.max(highestStreak, newStreak);
 
-    const updates: Partial<UserProfileExt> = { garden: newGarden, streak: streak + result.streak };
+    const updates: Partial<UserProfileExt> = { garden: newGarden, currentStreak: newStreak, highestStreak: newHighestStreak };
     if (result.key) {
       updates.keys = { ...userKeys, [result.key]: (userKeys[result.key] || 0) + 1 };
     }
@@ -538,7 +554,7 @@ export default function FlowerGardenSection({ currentUser, onUpdateUser, showToa
             <div className="flex-1 rounded-[24px] glass-panel px-4 py-3 flex items-center gap-2.5">
               <Star className="w-4 h-4 text-pink-400 fill-pink-300 flex-shrink-0" />
               <div>
-                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wide">Streak Manifest</p>
+                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wide">Streak Chung</p>
                 <p className="text-base font-bold text-slate-700">{streak} ngày</p>
               </div>
             </div>
