@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { doc, setDoc } from "firebase/firestore";
 import { db } from "../config/firebase";
 import { motion, useReducedMotion } from "motion/react";
-import { Upload, Image as ImageIcon, Sparkles, Loader2, ArrowRight } from "lucide-react";
+import { Upload, Image as ImageIcon, Sparkles, Loader2, ArrowRight, Moon } from "lucide-react";
 import { useIsMobile } from "../hooks/useIsMobile";
 
 interface HeroProps {
@@ -11,6 +11,8 @@ interface HeroProps {
   showToast: (message: string, type: "success" | "error" | "info") => void;
   onUpdateBg: (url: string | null) => void;
   customBgUrl: string | null;
+  darkBgUrl?: string | null;
+  onUpdateDarkBg?: (url: string | null) => void;
 }
 
 export default function Hero({
@@ -19,11 +21,32 @@ export default function Hero({
   showToast,
   onUpdateBg,
   customBgUrl,
+  darkBgUrl = null,
+  onUpdateDarkBg,
 }: HeroProps) {
   const [uploading, setUploading] = useState(false);
+  const [uploadingDark, setUploadingDark] = useState(false);
   const isMobile = useIsMobile();
   const prefersReducedMotion = useReducedMotion();
   const reduceEffects = isMobile || !!prefersReducedMotion;
+
+  const uploadToCloudinary = async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("upload_preset", "dreamy_garden_preset");
+
+    const response = await fetch("https://api.cloudinary.com/v1_1/i7upt5gk/auto/upload", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to upload background image");
+    }
+
+    const data = await response.json();
+    return data.secure_url as string;
+  };
 
   const handleBgUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -33,23 +56,8 @@ export default function Hero({
     showToast("Đang tải ảnh nền lên Cloudinary... ☁", "info");
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("upload_preset", "dreamy_garden_preset");
+      const secureUrl = await uploadToCloudinary(file);
 
-      const response = await fetch("https://api.cloudinary.com/v1_1/i7upt5gk/auto/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to upload background image");
-      }
-
-      const data = await response.json();
-      const secureUrl = data.secure_url;
-
-      // Update Firestore settings doc
       await setDoc(doc(db, "settings", "app"), {
         backgroundImage: secureUrl,
       }, { merge: true });
@@ -72,6 +80,45 @@ export default function Hero({
 
       onUpdateBg(null);
       showToast("Đã khôi phục ảnh nền Gradient mặc định.", "info");
+    } catch (err) {
+      console.error(err);
+      showToast("Không thể khôi phục ảnh nền!", "error");
+    }
+  };
+
+  const handleDarkBgUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !onUpdateDarkBg) return;
+
+    setUploadingDark(true);
+    showToast("Đang tải ảnh nền Chế Độ Tối lên Cloudinary... ☁", "info");
+
+    try {
+      const secureUrl = await uploadToCloudinary(file);
+
+      await setDoc(doc(db, "settings", "app"), {
+        darkBackgroundImage: secureUrl,
+      }, { merge: true });
+
+      onUpdateDarkBg(secureUrl);
+      showToast("Đã thay đổi ảnh nền Chế Độ Tối thành công! 🌙✨", "success");
+    } catch (err) {
+      console.error(err);
+      showToast("Không thể tải ảnh nền lên. Hãy kiểm tra cài đặt!", "error");
+    } finally {
+      setUploadingDark(false);
+    }
+  };
+
+  const handleResetDarkBg = async () => {
+    if (!onUpdateDarkBg) return;
+    try {
+      await setDoc(doc(db, "settings", "app"), {
+        darkBackgroundImage: null,
+      }, { merge: true });
+
+      onUpdateDarkBg(null);
+      showToast("Đã khôi phục ảnh nền Chế Độ Tối mặc định.", "info");
     } catch (err) {
       console.error(err);
       showToast("Không thể khôi phục ảnh nền!", "error");
@@ -235,37 +282,70 @@ export default function Hero({
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 1.8 }}
-          className="mt-12 p-5 rounded-[28px] glass-panel border border-pink-200/40 shadow-md max-w-sm w-full mx-auto text-slate-800 flex flex-col gap-3"
+          className="mt-12 p-5 rounded-[28px] glass-panel border border-pink-200/40 shadow-md max-w-sm w-full mx-auto text-slate-800 flex flex-col gap-4"
         >
-          <div className="flex items-center gap-1.5 text-xs font-bold text-pink-600 justify-center">
-            <ImageIcon className="w-4 h-4" />
-            <span>Tùy Biến Ảnh Nền Khu Vườn</span>
-          </div>
-          
-          <div className="flex gap-2 justify-center">
-            <label className="px-4 py-2 bg-pink-100 hover:bg-pink-200 text-pink-700 text-xs font-bold rounded-xl cursor-pointer flex items-center gap-1.5 transition-colors">
-              {uploading ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Upload className="w-3.5 h-3.5" />
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-pink-600 justify-center">
+              <ImageIcon className="w-4 h-4" />
+              <span>Tùy Biến Ảnh Nền Khu Vườn (Sáng)</span>
+            </div>
+            <div className="flex gap-2 justify-center">
+              <label className="px-4 py-2 bg-pink-100 hover:bg-pink-200 text-pink-700 text-xs font-bold rounded-xl cursor-pointer flex items-center gap-1.5 transition-colors">
+                {uploading ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Upload className="w-3.5 h-3.5" />
+                )}
+                {uploading ? "Đang tải..." : "Tải ảnh mới lên"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleBgUpload}
+                  disabled={uploading}
+                  className="hidden"
+                />
+              </label>
+              {customBgUrl && (
+                <button
+                  onClick={handleResetBg}
+                  className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-xl transition-all"
+                >
+                  Đặt lại mặc định
+                </button>
               )}
-              {uploading ? "Đang tải..." : "Tải ảnh mới lên"}
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleBgUpload}
-                disabled={uploading}
-                className="hidden"
-              />
-            </label>
-            {customBgUrl && (
-              <button
-                onClick={handleResetBg}
-                className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-xl transition-all"
-              >
-                Đặt lại mặc định
-              </button>
-            )}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3 pt-3 border-t border-pink-100">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 justify-center">
+              <Moon className="w-4 h-4" />
+              <span>Ảnh Nền Chế Độ Tối</span>
+            </div>
+            <div className="flex gap-2 justify-center">
+              <label className="px-4 py-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 text-xs font-bold rounded-xl cursor-pointer flex items-center gap-1.5 transition-colors">
+                {uploadingDark ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Upload className="w-3.5 h-3.5" />
+                )}
+                {uploadingDark ? "Đang tải..." : "Tải ảnh mới lên"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleDarkBgUpload}
+                  disabled={uploadingDark}
+                  className="hidden"
+                />
+              </label>
+              {darkBgUrl && (
+                <button
+                  onClick={handleResetDarkBg}
+                  className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-xl transition-all"
+                >
+                  Đặt lại mặc định
+                </button>
+              )}
+            </div>
           </div>
         </motion.div>
       )}
