@@ -133,7 +133,7 @@ export default function App() {
 
       <button
         onClick={toggleDarkMode}
-        className="fixed right-3 md:right-5 top-1/2 -translate-y-1/2 z-40 p-2.5 rounded-full glass-panel-ultra border border-white/50 hover:scale-110 active:scale-95 transition-all shadow-md"
+        className="fixed right-3 md:right-5 top-1/2 -translate-y-1/2 z-110 p-2.5 rounded-full glass-panel-ultra border border-white/50 hover:scale-110 active:scale-95 transition-all shadow-md"
         title={isDarkMode ? "Chuyển sang chế độ sáng" : "Chuyển sang chế độ tối"}
       >
         {isDarkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-500" />}
