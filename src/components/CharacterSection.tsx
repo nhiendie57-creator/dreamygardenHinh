@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "motion/react";
 import {
   Heart, Plus, Trash2, Edit2, X, Eye, Sparkles, Upload, Save,
   Lock, Unlock, Clock, BookOpen, Images, ExternalLink, Backpack, Milestone,
-  MousePointerClick, KeyRound
+  MousePointerClick, KeyRound, FileLock2, HelpCircle
 } from "lucide-react";
 import ImageCropModal from "./ImageCropModal";
 // Dùng lại hook isMobile sẵn có của project để tắt animation vô hạn trên mobile.
@@ -60,6 +60,13 @@ interface GalleryImage {
   caption?: string;
 }
 
+// --- File Ẩn: yêu cầu nhập mật khẩu/đáp án để xem nội dung ---
+interface HiddenFile {
+  question?: string;
+  password: string;
+  content: string;
+}
+
 // --- Hệ thống Key ---
 const KEY_TIER_META: Record<
   KeyTier,
@@ -83,6 +90,7 @@ type CharacterExt = Character & {
   views?: number;
   linkClicks?: number;
   keyRedeemCount?: number;
+  hiddenFile?: HiddenFile | null;
 };
 
 const DEFAULT_CHARACTERS: Character[] = [];
@@ -120,6 +128,11 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
   const [formRequiredKeyTier, setFormRequiredKeyTier] = useState<KeyTier | "public-link" | "">("");
   const [formUnlockRewardLink, setFormUnlockRewardLink] = useState("");
 
+  // --- File Ẩn (form admin) ---
+  const [formHiddenQuestion, setFormHiddenQuestion] = useState("");
+  const [formHiddenPassword, setFormHiddenPassword] = useState("");
+  const [formHiddenContent, setFormHiddenContent] = useState("");
+
   // --- Cắt ảnh trực tiếp từ máy (canvas) ---
   const avatarFileInputRef = useRef<HTMLInputElement>(null);
   const galleryFileInputRef = useRef<HTMLInputElement>(null);
@@ -127,6 +140,12 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
   const [cropTarget, setCropTarget] = useState<"avatar" | "gallery" | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingGalleryImage, setUploadingGalleryImage] = useState(false);
+
+  // --- Trạng thái giải mã File Ẩn trong khung chi tiết nhân vật ---
+  const [showHiddenUnlock, setShowHiddenUnlock] = useState(false);
+  const [hiddenPasswordInput, setHiddenPasswordInput] = useState("");
+  const [hiddenUnlocked, setHiddenUnlocked] = useState(false);
+  const [hiddenError, setHiddenError] = useState(false);
 
   useEffect(() => {
     const q = query(collection(db, "characters"), orderBy("createdAt", "desc"));
@@ -177,6 +196,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
           gallery: ext.gallery || [],
           requiredKeyTier: ext.requiredKeyTier || null,
           unlockRewardLink: ext.unlockRewardLink || "",
+          hiddenFile: ext.hiddenFile || null,
           createdAt: new Date().toISOString(),
         });
         showToast(`Đã thả tim cho ${character.name}! 💕`, "success");
@@ -193,6 +213,11 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
 
   const handleViewCharacter = async (character: Character) => {
     setSelectedCharacter(character);
+    // Reset trạng thái giải mã File Ẩn mỗi lần mở 1 nhân vật khác
+    setShowHiddenUnlock(false);
+    setHiddenPasswordInput("");
+    setHiddenUnlocked(false);
+    setHiddenError(false);
     if (character.id.startsWith("default-")) return;
     try {
       const charRef = doc(db, "characters", character.id);
@@ -209,6 +234,17 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
       await updateDoc(charRef, { linkClicks: increment(1) });
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleTryHiddenPassword = () => {
+    const ext = selectedCharacter as CharacterExt | null;
+    if (!ext?.hiddenFile) return;
+    if (hiddenPasswordInput.trim() === ext.hiddenFile.password) {
+      setHiddenUnlocked(true);
+      setHiddenError(false);
+    } else {
+      setHiddenError(true);
     }
   };
 
@@ -329,6 +365,13 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
         gallery: formGallery,
         requiredKeyTier: formRequiredKeyTier || null,
         unlockRewardLink: formRequiredKeyTier ? formUnlockRewardLink.trim() : "",
+        hiddenFile: formHiddenPassword.trim()
+          ? {
+              question: formHiddenQuestion.trim(),
+              password: formHiddenPassword.trim(),
+              content: formHiddenContent.trim(),
+            }
+          : null,
       };
 
       if (editingId) {
@@ -342,6 +385,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
       setFormName(""); setFormRole(""); setFormPlot(""); setFormTags(""); setFormAvatar("");
       setFormStatus("in-progress"); setFormStatusReason(""); setFormStoryArcs([]); setArcTitle(""); setArcContent("");
       setFormGallery([]); setGalleryCaption(""); setFormRequiredKeyTier(""); setFormUnlockRewardLink("");
+      setFormHiddenQuestion(""); setFormHiddenPassword(""); setFormHiddenContent("");
       setEditingId(null); setShowForm(false);
     } catch (err) {
       console.error(err);
@@ -367,7 +411,11 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
     setFormTags(char.tags.join(", ")); setFormAvatar(char.avatar); setFormStatus(ext.status || "in-progress");
     setFormStatusReason(ext.statusReason || ""); setFormStoryArcs(ext.storyArcs || []); setArcTitle(""); setArcContent("");
     setFormGallery(ext.gallery || []); setGalleryCaption(""); setFormRequiredKeyTier(ext.requiredKeyTier || "");
-    setFormUnlockRewardLink(ext.unlockRewardLink || ""); setShowForm(true);
+    setFormUnlockRewardLink(ext.unlockRewardLink || "");
+    setFormHiddenQuestion(ext.hiddenFile?.question || "");
+    setFormHiddenPassword(ext.hiddenFile?.password || "");
+    setFormHiddenContent(ext.hiddenFile?.content || "");
+    setShowForm(true);
   };
 
   const handleUnlockWithKey = async (character: Character) => {
@@ -495,6 +543,13 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
             <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-[9px] font-bold max-w-full text-indigo-600 bg-indigo-50 border-indigo-200">
               <ExternalLink className="w-3 h-3 flex-shrink-0" />
               <span className="truncate">ĐÃ CÓ LINK</span>
+            </div>
+          )}
+
+          {ext.hiddenFile && (
+            <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-[9px] font-bold max-w-full text-slate-600 bg-slate-100 border-slate-300">
+              <FileLock2 className="w-3 h-3 flex-shrink-0" />
+              <span className="truncate">CÓ FILE ẨN</span>
             </div>
           )}
         </div>
@@ -679,6 +734,17 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                   {formRequiredKeyTier && (
                     <input type="text" placeholder={formRequiredKeyTier === "public-link" ? "Nhập link trỏ tới character (Google Drive, Byvn, Discord,...)" : "Link phần thưởng khi user dùng Key mở khoá..."} value={formUnlockRewardLink} onChange={(e) => setFormUnlockRewardLink(e.target.value)} className="bg-slate-50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white" />
                   )}
+                </div>
+
+                {/* File Ẩn — yêu cầu mật khẩu/đáp án để xem nội dung */}
+                <div className="col-span-1 md:col-span-2 flex flex-col gap-2 pt-3 border-t border-pink-100">
+                  <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+                    <FileLock2 className="w-3.5 h-3.5 text-purple-400" /> File Ẩn (yêu cầu mật khẩu để xem)
+                  </label>
+                  <p className="text-[9px] text-slate-400 -mt-1">Để trống mật khẩu = nhân vật này không có File Ẩn.</p>
+                  <input type="text" placeholder="Câu hỏi gợi ý (tuỳ chọn, vd: Đáp án là ngày sinh nhân vật?)" value={formHiddenQuestion} onChange={(e) => setFormHiddenQuestion(e.target.value)} className="bg-slate-50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white" />
+                  <input type="text" placeholder="Mật khẩu / đáp án" value={formHiddenPassword} onChange={(e) => setFormHiddenPassword(e.target.value)} className="bg-slate-50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white" />
+                  <textarea rows={4} placeholder="Nội dung truyện ẩn..." value={formHiddenContent} onChange={(e) => setFormHiddenContent(e.target.value)} className="bg-slate-50 border border-pink-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white resize-none" />
                 </div>
 
                 <div className="col-span-1 md:col-span-2 flex flex-col gap-2 pt-3 border-t border-pink-100">
@@ -919,6 +985,67 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {/* File Ẩn — cần nhập đúng mật khẩu/đáp án để xem nội dung */}
+              {(selectedCharacter as CharacterExt).hiddenFile && (
+                <div className="mt-6 pt-5 border-t border-pink-100">
+                  <button
+                    type="button"
+                    onClick={() => setShowHiddenUnlock((v) => !v)}
+                    className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-full bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold transition-colors"
+                  >
+                    <FileLock2 className="w-3.5 h-3.5" />
+                    {hiddenUnlocked ? "File Ẩn (đã giải mã)" : "File Ẩn — Bấm để giải mã"}
+                  </button>
+
+                  <AnimatePresence>
+                    {showHiddenUnlock && !hiddenUnlocked && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 flex flex-col gap-2.5">
+                          {(selectedCharacter as CharacterExt).hiddenFile!.question && (
+                            <p className="text-xs text-slate-600 flex items-start gap-1.5">
+                              <HelpCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-purple-400" />
+                              <span className="italic">{(selectedCharacter as CharacterExt).hiddenFile!.question}</span>
+                            </p>
+                          )}
+                          <input
+                            type="password"
+                            value={hiddenPasswordInput}
+                            onChange={(e) => { setHiddenPasswordInput(e.target.value); setHiddenError(false); }}
+                            onKeyDown={(e) => e.key === "Enter" && handleTryHiddenPassword()}
+                            placeholder="Nhập đáp án / mật khẩu..."
+                            className={`bg-white border rounded-xl px-3 py-2 text-xs outline-none ${hiddenError ? "border-rose-300" : "border-slate-200"}`}
+                          />
+                          {hiddenError && <span className="text-[10px] text-rose-500 font-bold">Sai mật khẩu, thử lại nhé!</span>}
+                          <button
+                            type="button"
+                            onClick={handleTryHiddenPassword}
+                            className="self-end px-4 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-full text-[10px] font-bold transition-colors"
+                          >
+                            Giải Mã
+                          </button>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  <AnimatePresence>
+                    {hiddenUnlocked && (
+                      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-3 rounded-2xl border border-slate-300 bg-slate-50 p-4">
+                        <p className="text-[10px] uppercase tracking-widest font-bold text-slate-500 mb-2">Nội dung File Ẩn</p>
+                        <p className="text-sm leading-loose whitespace-pre-line text-slate-700 font-medium">
+                          {(selectedCharacter as CharacterExt).hiddenFile!.content}
+                        </p>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               )}
             </motion.div>
