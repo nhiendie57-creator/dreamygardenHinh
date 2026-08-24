@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "motion/react";
 import {
   Heart, Plus, Trash2, Edit2, X, Eye, Sparkles, Upload, Save,
   Lock, Unlock, Clock, BookOpen, Images, ExternalLink, Backpack, Milestone,
-  MousePointerClick, KeyRound, FileLock2, HelpCircle
+  MousePointerClick, KeyRound, FileLock2, HelpCircle, ArrowLeft
 } from "lucide-react";
 import ImageCropModal from "./ImageCropModal";
 // Dùng lại hook isMobile sẵn có của project để tắt animation vô hạn trên mobile.
@@ -80,6 +80,19 @@ const KEY_TIER_META: Record<
 const KEY_TIER_ORDER: KeyTier[] = ["bronze", "silver", "gold", "diamond"];
 const EMPTY_KEYS: UserKeys = { bronze: 0, silver: 0, gold: 0, diamond: 0 };
 
+// Bộ ba màu thương hiệu (xanh lá / hồng / tím) — lấy đúng từ .liquid-border
+// trong index.css để mọi mảng màu mới thêm vào đều đồng bộ với web.
+const BRAND_GREEN = "#BCECAC";
+const BRAND_PINK = "#FFD1DC";
+const BRAND_LAVENDER = "#E6E6FA";
+
+// Vòng lặp màu cho tag/nhãn để tạo cảm giác ombre thay vì một màu hồng cố định
+const TAG_STYLES = [
+  "bg-emerald-50/70 text-emerald-700 border-emerald-200/70",
+  "bg-pink-50/70 text-pink-700 border-pink-200/70",
+  "bg-purple-50/70 text-purple-700 border-purple-200/70",
+];
+
 type CharacterExt = Character & {
   status?: CharacterStatus;
   statusReason?: string;
@@ -141,7 +154,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingGalleryImage, setUploadingGalleryImage] = useState(false);
 
-  // --- Trạng thái giải mã File Ẩn trong khung chi tiết nhân vật ---
+  // --- Trạng thái giải mã File Ẩn trong trang chi tiết nhân vật ---
   const [showHiddenUnlock, setShowHiddenUnlock] = useState(false);
   const [hiddenPasswordInput, setHiddenPasswordInput] = useState("");
   const [hiddenUnlocked, setHiddenUnlocked] = useState(false);
@@ -337,7 +350,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
   };
 
   const handleRemoveGalleryImage = (id: string) => setFormGallery((prev) => prev.filter((img) => img.id !== id));
-  
+
   const handleAddStoryArc = () => {
     if (!arcTitle.trim() || !arcContent.trim()) return showToast("Vui lòng nhập đủ tên và nội dung mạch truyện!", "error");
     setFormStoryArcs((prev) => [...prev, { id: `arc-${Date.now()}`, title: arcTitle.trim(), content: arcContent.trim() }]);
@@ -565,7 +578,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
             <Eye className="w-3 h-3 text-pink-400" />
             Chi tiết
           </button>
-          
+
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1 text-slate-400" title="Lượt xem Chi tiết">
               <Eye className="w-3 h-3" />
@@ -582,6 +595,299 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
       </motion.div>
     );
   };
+
+  // ==================================================================
+  // TRANG CHI TIẾT NHÂN VẬT — thay cho popup cũ.
+  // Không có background màu riêng: dùng glass-panel/-ultra trong suốt
+  // để BackgroundOverlay của cả web vẫn hiện xuyên qua, đúng yêu cầu.
+  // ==================================================================
+  if (selectedCharacter) {
+    const ext = selectedCharacter as CharacterExt;
+    const hasKeyGate = !!ext.requiredKeyTier && ext.requiredKeyTier !== "public-link";
+    const isPublicLink = ext.requiredKeyTier === "public-link";
+    const tier = hasKeyGate ? (ext.requiredKeyTier as KeyTier) : null;
+    const tierMeta = tier ? KEY_TIER_META[tier] : null;
+    const isKeyUnlocked = hasKeyGate && unlockedIds.includes(selectedCharacter.id);
+    const availableCount = tier ? (userKeys[tier] || 0) : 0;
+
+    return (
+      <div className="w-full max-w-3xl mx-auto px-4 py-8 z-10 relative">
+        {/* Nút quay về */}
+        <button
+          onClick={() => setSelectedCharacter(null)}
+          className="mb-6 inline-flex items-center gap-1.5 px-4 py-2 rounded-full glass-panel text-slate-700 text-xs font-bold hover:bg-white/60 transition-colors"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          Quay về khu vườn
+        </button>
+
+        {isAdmin && (hasKeyGate || isPublicLink) && (
+          <div className="flex items-center justify-center gap-4 mb-4 text-[10px] font-bold text-slate-500">
+            <span className="flex items-center gap-1">
+              <MousePointerClick className="w-3.5 h-3.5 text-purple-400" /> {ext.linkClicks || 0} lượt bấm link
+            </span>
+            {hasKeyGate && (
+              <span className="flex items-center gap-1">
+                <KeyRound className="w-3.5 h-3.5 text-pink-400" /> {ext.keyRedeemCount || 0} lượt đổi Key
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* ---------- Khối đầu trang: avatar / tên / vai trò / tag ---------- */}
+        <div className="rounded-[32px] glass-panel-ultra p-6 md:p-8 flex flex-col items-center text-center">
+          {ext.status && (() => {
+            const meta = CHARACTER_STATUS_META[ext.status!];
+            const Icon = meta.icon;
+            return (
+              <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[10px] font-bold mb-4 ${meta.badge}`}>
+                <Icon className="w-3 h-3" />
+                <span>{meta.label}</span>
+                {ext.status === "locked" && ext.statusReason && (
+                  <span className="font-normal italic opacity-80">· {ext.statusReason}</span>
+                )}
+              </div>
+            );
+          })()}
+
+          <div className="relative w-36 h-36 mb-4">
+            {!isMobile && (
+              <>
+                <div className="absolute -inset-1.5 rounded-full bg-gradient-to-tr from-green-300 via-pink-300 to-purple-300 blur-sm animate-wave-rotate opacity-75" />
+                <div className="absolute -inset-1 rounded-full liquid-border opacity-90" />
+              </>
+            )}
+            {isMobile && (
+              <div className="absolute -inset-1 rounded-full bg-gradient-to-tr from-green-300 via-pink-300 to-purple-300 opacity-70" />
+            )}
+            <div className="relative w-full h-full rounded-full overflow-hidden border-2 border-white bg-slate-100 z-10 shadow-lg">
+              <img src={selectedCharacter.avatar} alt={selectedCharacter.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+            </div>
+          </div>
+
+          <h1 className="text-2xl md:text-3xl font-bold font-display text-slate-900">{selectedCharacter.name}</h1>
+          {/* Bỏ chữ nghiêng / font cursive theo yêu cầu — chỉ dùng chữ thường đậm nhẹ */}
+          <p className="text-xs font-semibold text-slate-500 mt-1 tracking-wide">{selectedCharacter.role}</p>
+
+          <div className="flex flex-wrap gap-1.5 justify-center mt-4">
+            {selectedCharacter.tags.map((t, i) => (
+              <span key={t} className={`text-[10px] font-bold px-2.5 py-1 rounded-full border ${TAG_STYLES[i % TAG_STYLES.length]}`}>
+                #{t}
+              </span>
+            ))}
+          </div>
+
+          <div className="flex items-center justify-center gap-5 mt-4 text-xs font-bold">
+            <span className="flex items-center gap-1 text-pink-600">
+              <Heart className="w-4 h-4 fill-pink-500 text-pink-500" />
+              {selectedCharacter.likes} lượt thích kì diệu
+            </span>
+            {/* Đổi tên nhãn lượt xem — không dùng "thăm hỏi" nữa */}
+            <span className="flex items-center gap-1 text-slate-500">
+              <Eye className="w-3.5 h-3.5 text-purple-400" />
+              {ext.views || 0} lượt ghé qua
+            </span>
+          </div>
+
+          {/* Public Link — hiện nút Nhận Link trực tiếp */}
+          {isPublicLink && ext.unlockRewardLink && (
+            <div className="w-full rounded-2xl border border-purple-200/60 bg-gradient-to-br from-emerald-50/70 via-pink-50/70 to-purple-50/70 p-4 mt-5 flex flex-col items-center gap-2">
+              <span className="text-xs font-bold text-purple-700">Bản thảo đang chờ bạn hoàn thành...</span>
+              <a
+                href={ext.unlockRewardLink}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => handleLinkClick(selectedCharacter)}
+                className="px-5 py-2.5 rounded-full text-xs font-bold text-white shadow-sm transition-transform hover:scale-105"
+                style={{ background: `linear-gradient(90deg, ${BRAND_GREEN}, ${BRAND_PINK}, ${BRAND_LAVENDER})`, color: "#3f2d45" }}
+              >
+                Nhận Link Ngay
+              </a>
+            </div>
+          )}
+
+          {/* Key Gate — mở khoá bằng Key, hoặc hiển thị đã mở */}
+          {hasKeyGate && tierMeta && (
+            <div className="w-full rounded-2xl border border-purple-200/60 bg-gradient-to-br from-emerald-50/70 via-pink-50/70 to-purple-50/70 p-4 mt-5">
+              {isKeyUnlocked ? (
+                <div className="flex flex-col items-center gap-2 text-center">
+                  <span className="text-xs font-bold text-emerald-700">Đã mở khoá bằng {tierMeta.emoji} Key {tierMeta.label}</span>
+                  {ext.unlockRewardLink && (
+                    <>
+                      <a
+                        href={ext.unlockRewardLink}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={() => handleLinkClick(selectedCharacter)}
+                        className="px-4 py-2 rounded-full text-xs font-bold text-white transition-transform hover:scale-105"
+                        style={{ background: `linear-gradient(90deg, ${BRAND_GREEN}, ${BRAND_PINK}, ${BRAND_LAVENDER})`, color: "#3f2d45" }}
+                      >
+                        Nhận Link Ngay
+                      </a>
+                      {/* Yêu cầu: hiển thị trạng thái "Đã có Link" ngay bên dưới nút,
+                          riêng cho trường hợp mở bằng Key */}
+                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-600">
+                        Đã có Link
+                      </span>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-2 text-center">
+                  <span className="text-xs font-bold text-slate-700">{tierMeta.emoji} Cần Key {tierMeta.label} để mở khoá nhân vật này</span>
+                  <span className="text-[10px] text-slate-500">Bạn đang có: {availableCount} Key {tierMeta.label}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleUnlockWithKey(selectedCharacter)}
+                    disabled={availableCount < 1 || unlockingId === selectedCharacter.id}
+                    className="px-4 py-2 rounded-full text-xs font-bold text-white disabled:opacity-40 disabled:cursor-not-allowed transition-transform hover:scale-105"
+                    style={{ background: `linear-gradient(90deg, ${BRAND_GREEN}, ${BRAND_PINK}, ${BRAND_LAVENDER})`, color: "#3f2d45" }}
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <Unlock className="w-3.5 h-3.5" />
+                      {unlockingId === selectedCharacter.id ? "Đang mở..." : "Dùng Key Mở Khoá"}
+                    </span>
+                  </button>
+                  {availableCount < 1 && (
+                    <span className="text-[10px] text-slate-500 italic">Giữ chuỗi Manifest {tierMeta.threshold} ngày rồi đổi Key ở trang Manifest nhé!</span>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Ombre divider — không icon lá, chỉ là 1 vạch gradient thương hiệu */}
+        <div
+          className="my-8 h-[3px] w-full rounded-full"
+          style={{ background: `linear-gradient(90deg, ${BRAND_GREEN}, ${BRAND_PINK}, ${BRAND_LAVENDER})` }}
+        />
+
+        {/* ---------- VIBE BOARD — hiển thị trước Plot theo yêu cầu ---------- */}
+        {ext.gallery && ext.gallery.length > 0 && (
+          <div className="rounded-[32px] glass-panel-ultra p-6 md:p-8">
+            <h4 className="text-xs uppercase tracking-widest font-bold text-slate-500 mb-4 flex items-center gap-1.5">
+              <Images className="w-3.5 h-3.5 text-purple-400" /> Vibe Board
+            </h4>
+            <div className="grid grid-cols-3 gap-2 [grid-auto-flow:dense]">
+              {ext.gallery.map((img, i) => {
+                const isFeatured = i % 6 === 0;
+                const span = isFeatured ? "col-span-2 row-span-2" : "";
+                const tilt = i % 3 === 0 ? "-rotate-1" : i % 3 === 1 ? "rotate-1" : "rotate-0";
+
+                return (
+                  <div key={img.id} className={`relative aspect-square rounded-2xl overflow-hidden group shadow-md ring-1 ring-white/60 ${span} ${tilt} hover:rotate-0 hover:scale-[1.03] hover:z-10 hover:shadow-xl transition-all duration-300 ease-out`}>
+                    <img src={img.url} alt={img.caption || selectedCharacter.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    {img.caption && (
+                      <span className="absolute bottom-2 left-2.5 right-2.5 text-[9px] text-white font-semibold opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0 transition-all duration-300 drop-shadow-md line-clamp-1">
+                        {img.caption}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <div
+          className="my-8 h-[3px] w-full rounded-full"
+          style={{ background: `linear-gradient(90deg, ${BRAND_LAVENDER}, ${BRAND_PINK}, ${BRAND_GREEN})` }}
+        />
+
+        {/* ---------- PLOT ---------- */}
+        <div className="rounded-[32px] glass-panel-ultra p-6 md:p-8">
+          <h4 className="text-xs uppercase tracking-widest font-bold text-slate-500 mb-3">
+            PLOT: CỐT TRUYỆN CHÍNH
+          </h4>
+          <div className="text-sm leading-loose whitespace-pre-line text-slate-700/90 font-medium">
+            {selectedCharacter.plot}
+          </div>
+        </div>
+
+        {/* ---------- Mạch truyện bổ sung ---------- */}
+        {ext.storyArcs && ext.storyArcs.length > 0 && (
+          <div className="rounded-[32px] glass-panel-ultra p-6 md:p-8 mt-6">
+            <h4 className="text-xs uppercase tracking-widest font-bold text-slate-500 mb-3 flex items-center gap-1.5">
+              <BookOpen className="w-3.5 h-3.5 text-purple-400" /> Mạch Truyện Bổ Sung
+            </h4>
+            <div className="flex flex-col gap-3">
+              {ext.storyArcs.map((arc) => (
+                <div key={arc.id} className="px-3.5 py-3 rounded-2xl border border-purple-200/50 bg-gradient-to-br from-emerald-50/50 via-pink-50/50 to-purple-50/50">
+                  <p className="text-xs font-bold text-purple-700 mb-1">{arc.title}</p>
+                  <p className="text-xs leading-relaxed text-slate-600 whitespace-pre-line">{arc.content}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ---------- File Ẩn ---------- */}
+        {ext.hiddenFile && (
+          <div className="rounded-[32px] glass-panel-ultra p-6 md:p-8 mt-6">
+            <button
+              type="button"
+              onClick={() => setShowHiddenUnlock((v) => !v)}
+              className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-full text-white text-xs font-bold transition-transform hover:scale-[1.02]"
+              style={{ background: `linear-gradient(90deg, ${BRAND_LAVENDER}, ${BRAND_PINK}, ${BRAND_GREEN})`, color: "#3f2d45" }}
+            >
+              <FileLock2 className="w-3.5 h-3.5" />
+              {hiddenUnlocked ? "File Ẩn (đã giải mã)" : "File Ẩn — Bấm để giải mã"}
+            </button>
+
+            <AnimatePresence>
+              {showHiddenUnlock && !hiddenUnlocked && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="mt-3 rounded-2xl border border-purple-200/50 bg-white/40 p-4 flex flex-col gap-2.5">
+                    {ext.hiddenFile.question && (
+                      <p className="text-xs text-slate-600 flex items-start gap-1.5">
+                        <HelpCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-purple-400" />
+                        <span>{ext.hiddenFile.question}</span>
+                      </p>
+                    )}
+                    <input
+                      type="password"
+                      value={hiddenPasswordInput}
+                      onChange={(e) => { setHiddenPasswordInput(e.target.value); setHiddenError(false); }}
+                      onKeyDown={(e) => e.key === "Enter" && handleTryHiddenPassword()}
+                      placeholder="Nhập đáp án / mật khẩu..."
+                      className={`bg-white border rounded-xl px-3 py-2 text-xs outline-none ${hiddenError ? "border-rose-300" : "border-purple-200"}`}
+                    />
+                    {hiddenError && <span className="text-[10px] text-rose-500 font-bold">Sai mật khẩu, thử lại nhé!</span>}
+                    <button
+                      type="button"
+                      onClick={handleTryHiddenPassword}
+                      className="self-end px-4 py-1.5 rounded-full text-[10px] font-bold text-white transition-transform hover:scale-105"
+                      style={{ background: `linear-gradient(90deg, ${BRAND_GREEN}, ${BRAND_PINK}, ${BRAND_LAVENDER})`, color: "#3f2d45" }}
+                    >
+                      Giải Mã
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <AnimatePresence>
+              {hiddenUnlocked && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-3 rounded-2xl border border-purple-200/50 bg-white/40 p-4">
+                  <p className="text-[10px] uppercase tracking-widest font-bold text-slate-500 mb-2">Nội dung File Ẩn</p>
+                  <p className="text-sm leading-loose whitespace-pre-line text-slate-700 font-medium">
+                    {ext.hiddenFile.content}
+                  </p>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-6xl mx-auto px-4 py-8 z-10 flex flex-col gap-6 relative">
@@ -628,7 +934,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
             </h3>
             <div className="h-[1px] flex-1 bg-gradient-to-l from-transparent to-indigo-400/70" />
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             <AnimatePresence>
               {inProgressChars.map(renderCharacterCard)}
@@ -818,236 +1124,6 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                   </button>
                 </div>
               </form>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {selectedCharacter && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-900/30 backdrop-blur-md" onClick={() => setSelectedCharacter(null)}>
-            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className="bg-white/70 backdrop-blur-xl border border-white/60 p-6 md:p-8 rounded-[36px] shadow-2xl max-w-2xl w-full text-slate-800 relative max-h-[90vh] flex flex-col custom-scroll overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-              <button onClick={() => setSelectedCharacter(null)} className="absolute top-5 right-5 p-2 rounded-full bg-white/50 hover:bg-white text-slate-700 transition-all hover:scale-110 shadow-sm">
-                <X className="w-4 h-4" />
-              </button>
-
-              {(() => {
-                const ext = selectedCharacter as CharacterExt;
-                const hasKeyGate = !!ext.requiredKeyTier && ext.requiredKeyTier !== "public-link";
-                const isPublicLink = ext.requiredKeyTier === "public-link";
-
-                return (
-                  <>
-                    {isAdmin && (hasKeyGate || isPublicLink) && (
-                      <div className="flex items-center justify-center gap-4 mb-3 text-[10px] font-bold text-slate-500">
-                        <span className="flex items-center gap-1">
-                          <MousePointerClick className="w-3.5 h-3.5 text-indigo-400" /> {ext.linkClicks || 0} lượt bấm link
-                        </span>
-                        {hasKeyGate && (
-                          <span className="flex items-center gap-1">
-                            <KeyRound className="w-3.5 h-3.5 text-purple-400" /> {ext.keyRedeemCount || 0} lượt đổi Key
-                          </span>
-                        )}
-                      </div>
-                    )}
-                    {ext.status && (() => {
-                      const meta = CHARACTER_STATUS_META[ext.status!];
-                      const Icon = meta.icon;
-                      return (
-                        <div className={`self-center md:self-start inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[10px] font-bold mb-3 ${meta.badge}`}>
-                          <Icon className="w-3 h-3" />
-                          <span>{meta.label}</span>
-                          {ext.status === "locked" && ext.statusReason && (
-                            <span className="font-normal italic opacity-80">· {ext.statusReason}</span>
-                          )}
-                        </div>
-                      );
-                    })()}
-
-                    {/* Nếu là Public Link thì hiển thị nút Nhận Link trực tiếp trong profile */}
-                    {isPublicLink && ext.unlockRewardLink && (
-                      <div className="rounded-2xl border border-indigo-200 bg-indigo-50/60 p-4 mb-4 text-center">
-                        <div className="flex flex-col gap-2 items-center">
-                          <span className="text-xs font-bold text-indigo-700">✨ Bản thảo đang chờ bạn hoàn thành...</span>
-                          <a href={ext.unlockRewardLink} target="_blank" rel="noreferrer" onClick={() => handleLinkClick(selectedCharacter)} className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm">
-                            <ExternalLink className="w-3.5 h-3.5" /> Nhận Link Ngay
-                          </a>
-                        </div>
-                      </div>
-                    )}
-
-                    {hasKeyGate && (() => {
-                      const tier = ext.requiredKeyTier as KeyTier;
-                      const meta = KEY_TIER_META[tier];
-                      const isUnlocked = unlockedIds.includes(selectedCharacter.id);
-                      const availableCount = userKeys[tier] || 0;
-
-                      return (
-                        <div className={`rounded-2xl border p-4 mb-4 ${isUnlocked ? "border-emerald-200 bg-emerald-50/60" : meta.badge}`}>
-                          {isUnlocked ? (
-                            <div className="flex flex-col gap-2 items-center text-center">
-                              <span className="text-xs font-bold text-emerald-700">🎉 Đã mở khoá bằng {meta.emoji} Key {meta.label}</span>
-                              {ext.unlockRewardLink && (
-                                <a href={ext.unlockRewardLink} target="_blank" rel="noreferrer" onClick={() => handleLinkClick(selectedCharacter)} className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-full text-xs font-bold flex items-center gap-1.5 transition-colors">
-                                  <ExternalLink className="w-3.5 h-3.5" /> Nhận Link Ngay
-                                </a>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="flex flex-col gap-2 items-center text-center">
-                              <span className="text-xs font-bold">{meta.emoji} Cần Key {meta.label} để mở khoá nhân vật này</span>
-                              <span className="text-[10px] opacity-80">Bạn đang có: {availableCount} Key {meta.label}</span>
-                              <button type="button" onClick={() => handleUnlockWithKey(selectedCharacter)} disabled={availableCount < 1 || unlockingId === selectedCharacter.id} className="px-4 py-2 bg-purple-500 hover:bg-purple-600 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-full text-xs font-bold flex items-center gap-1.5 transition-colors">
-                                <Unlock className="w-3.5 h-3.5" />
-                                {unlockingId === selectedCharacter.id ? "Đang mở..." : "Dùng Key Mở Khoá"}
-                              </button>
-                              {availableCount < 1 && (
-                                <span className="text-[10px] opacity-70 italic">Giữ chuỗi Manifest {meta.threshold} ngày rồi đổi Key ở trang Manifest nhé!</span>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })()}
-                  </>
-                );
-              })()}
-
-              <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
-                <div className="relative w-40 h-40 flex-shrink-0">
-                  <div className="absolute -inset-2 rounded-full bg-gradient-to-tr from-green-300 via-pink-300 to-purple-400 blur-sm animate-wave-rotate opacity-75" />
-                  <div className="absolute -inset-1 rounded-full liquid-border" />
-                  <div className="relative w-full h-full rounded-full overflow-hidden border-2 border-white bg-slate-100 z-10 shadow-lg">
-                    <img src={selectedCharacter.avatar} alt={selectedCharacter.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                  </div>
-                </div>
-
-                <div className="flex-1 text-center md:text-left">
-                  <span className="text-[10px] uppercase font-bold tracking-widest text-pink-500">Cốt truyện nhân vật</span>
-                  <h3 className="text-2xl font-bold font-display text-slate-900 mt-1">{selectedCharacter.name}</h3>
-                  <p className="text-xs italic text-slate-600 mt-0.5 font-medium">{selectedCharacter.role}</p>
-                  <div className="flex flex-wrap gap-1 mt-2.5 justify-center md:justify-start">
-                    {selectedCharacter.tags.map((t) => (
-                      <span key={t} className="text-[9px] bg-pink-50 text-pink-700 font-bold px-2.5 py-0.5 rounded-full border border-pink-100/50">#{t}</span>
-                    ))}
-                  </div>
-                  <div className="flex items-center justify-center md:justify-start gap-1 text-pink-600 mt-4 font-bold text-xs">
-                    <Heart className="w-4 h-4 fill-pink-500 text-pink-500 animate-pulse" />
-                    <span>{selectedCharacter.likes} lượt thích kì diệu</span>
-                  </div>
-                </div>
-              </div>
-
-              {(selectedCharacter as CharacterExt).gallery && (selectedCharacter as CharacterExt).gallery!.length > 0 && (
-                <div className="mt-6 pt-5 border-t border-pink-100">
-                  <h4 className="text-xs uppercase tracking-widest font-bold text-slate-500 mb-3 flex items-center gap-1.5">
-                    <Images className="w-3.5 h-3.5 text-purple-400" /> Vibe Board
-                  </h4>
-                  <div className="grid grid-cols-3 gap-2 [grid-auto-flow:dense]">
-                    {(selectedCharacter as CharacterExt).gallery!.map((img, i) => {
-                      const isFeatured = i % 6 === 0;
-                      const span = isFeatured ? "col-span-2 row-span-2" : "";
-                      const tilt = i % 3 === 0 ? "-rotate-1" : i % 3 === 1 ? "rotate-1" : "rotate-0";
-
-                      return (
-                        <div key={img.id} className={`relative aspect-square rounded-2xl overflow-hidden group shadow-md ring-1 ring-white/60 ${span} ${tilt} hover:rotate-0 hover:scale-[1.03] hover:z-10 hover:shadow-xl transition-all duration-300 ease-out`}>
-                          <img src={img.url} alt={img.caption || selectedCharacter.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                          {img.caption && (
-                            <span className="absolute bottom-2 left-2.5 right-2.5 text-[9px] text-white font-semibold opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0 transition-all duration-300 drop-shadow-md line-clamp-1">
-                              {img.caption}
-                            </span>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              <div className="mt-6 pt-5 border-t border-pink-100 text-slate-700">
-                <h4 className="text-xs uppercase tracking-widest font-bold text-slate-500 mb-2">Tiểu Sử Phiêu Lưu</h4>
-                <div className="text-sm leading-loose whitespace-pre-line text-slate-700/90 font-medium">
-                  {selectedCharacter.plot}
-                </div>
-              </div>
-
-              {(selectedCharacter as CharacterExt).storyArcs && (selectedCharacter as CharacterExt).storyArcs!.length > 0 && (
-                <div className="mt-6 pt-5 border-t border-pink-100 text-slate-700">
-                  <h4 className="text-xs uppercase tracking-widest font-bold text-slate-500 mb-3 flex items-center gap-1.5">
-                    <BookOpen className="w-3.5 h-3.5 text-purple-400" /> Mạch Truyện Bổ Sung
-                  </h4>
-                  <div className="flex flex-col gap-3">
-                    {(selectedCharacter as CharacterExt).storyArcs!.map((arc) => (
-                      <div key={arc.id} className="px-3.5 py-3 rounded-2xl border border-purple-100 bg-purple-50/40">
-                        <p className="text-xs font-bold text-purple-700 mb-1">{arc.title}</p>
-                        <p className="text-xs leading-relaxed text-slate-600 whitespace-pre-line">{arc.content}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* File Ẩn — cần nhập đúng mật khẩu/đáp án để xem nội dung */}
-              {(selectedCharacter as CharacterExt).hiddenFile && (
-                <div className="mt-6 pt-5 border-t border-pink-100">
-                  <button
-                    type="button"
-                    onClick={() => setShowHiddenUnlock((v) => !v)}
-                    className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-full bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold transition-colors"
-                  >
-                    <FileLock2 className="w-3.5 h-3.5" />
-                    {hiddenUnlocked ? "File Ẩn (đã giải mã)" : "File Ẩn — Bấm để giải mã"}
-                  </button>
-
-                  <AnimatePresence>
-                    {showHiddenUnlock && !hiddenUnlocked && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: "auto" }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="overflow-hidden"
-                      >
-                        <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 flex flex-col gap-2.5">
-                          {(selectedCharacter as CharacterExt).hiddenFile!.question && (
-                            <p className="text-xs text-slate-600 flex items-start gap-1.5">
-                              <HelpCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-purple-400" />
-                              <span className="italic">{(selectedCharacter as CharacterExt).hiddenFile!.question}</span>
-                            </p>
-                          )}
-                          <input
-                            type="password"
-                            value={hiddenPasswordInput}
-                            onChange={(e) => { setHiddenPasswordInput(e.target.value); setHiddenError(false); }}
-                            onKeyDown={(e) => e.key === "Enter" && handleTryHiddenPassword()}
-                            placeholder="Nhập đáp án / mật khẩu..."
-                            className={`bg-white border rounded-xl px-3 py-2 text-xs outline-none ${hiddenError ? "border-rose-300" : "border-slate-200"}`}
-                          />
-                          {hiddenError && <span className="text-[10px] text-rose-500 font-bold">Sai mật khẩu, thử lại nhé!</span>}
-                          <button
-                            type="button"
-                            onClick={handleTryHiddenPassword}
-                            className="self-end px-4 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-full text-[10px] font-bold transition-colors"
-                          >
-                            Giải Mã
-                          </button>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-
-                  <AnimatePresence>
-                    {hiddenUnlocked && (
-                      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-3 rounded-2xl border border-slate-300 bg-slate-50 p-4">
-                        <p className="text-[10px] uppercase tracking-widest font-bold text-slate-500 mb-2">Nội dung File Ẩn</p>
-                        <p className="text-sm leading-loose whitespace-pre-line text-slate-700 font-medium">
-                          {(selectedCharacter as CharacterExt).hiddenFile!.content}
-                        </p>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              )}
             </motion.div>
           </motion.div>
         )}
