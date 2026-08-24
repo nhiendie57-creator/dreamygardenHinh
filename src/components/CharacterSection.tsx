@@ -497,7 +497,7 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.9 }}
         transition={{ duration: 0.4 }}
-        className="relative p-6 rounded-[32px] glass-panel hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 flex flex-col items-center text-center group"
+        className="relative p-6 rounded-[32px] character-card-panel hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 flex flex-col items-center text-center group"
       >
         {isAdmin && (
           <div className="absolute top-4 right-4 flex gap-1.5 z-10">
@@ -568,8 +568,17 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
         </div>
 
         <div className="flex flex-wrap gap-1 justify-center mb-4">
-          {char.tags.map((t) => (
-            <span key={t} className="text-[9px] bg-white/40 text-slate-600 font-bold px-2 py-0.5 rounded-full border border-white/40">#{t}</span>
+          {char.tags.map((t, i) => (
+            <span
+              key={t}
+              className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${
+                i % 2 === 0
+                  ? "bg-white/70 text-pink-700 border-pink-200/70"
+                  : "bg-white/70 text-purple-700 border-purple-200/70"
+              }`}
+            >
+              #{t}
+            </span>
           ))}
         </div>
 
