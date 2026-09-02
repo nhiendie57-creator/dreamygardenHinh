@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "motion/react";
 import {
   Heart, Plus, Trash2, Edit2, X, Eye, Sparkles, Upload, Save,
   Lock, Unlock, Clock, BookOpen, Images, ExternalLink, Backpack, Milestone,
-  MousePointerClick, KeyRound, FileLock2, HelpCircle, ArrowLeft, ChevronDown
+  MousePointerClick, KeyRound, FileLock2, HelpCircle, ArrowLeft
 } from "lucide-react";
 import ImageCropModal from "./ImageCropModal";
 // Dùng lại hook isMobile sẵn có của project để tắt animation vô hạn trên mobile.
@@ -86,20 +86,28 @@ const BRAND_GREEN = "#BCECAC";
 const BRAND_PINK = "#FFD1DC";
 const BRAND_LAVENDER = "#E6E6FA";
 
+// ------------------------------------------------------------------
+// Token màu/chữ riêng cho TRANG CHI TIẾT nhân vật (redesign carrd-style).
+// Tách riêng khỏi giao diện danh sách/lưới bên ngoài — trang chi tiết giờ
+// dùng nền xám ấm + panel trắng phẳng thay vì glass-panel trong suốt,
+// bộ 3 màu thương hiệu chỉ còn xuất hiện ở banner & divider, không phủ
+// lên mọi khối nữa.
+// ------------------------------------------------------------------
+const DETAIL_BG = "#ECEAE4";
+const DETAIL_PANEL = "#FFFFFF";
+const DETAIL_INK = "#2B2730";
+const DETAIL_MUTED = "#8D8790";
+const DETAIL_HAIRLINE = "#DEDAD3";
+const DETAIL_ACCENT = "#B9647F";
+const FONT_DISPLAY = "'Fraunces', serif";
+const FONT_BODY = "'Inter', sans-serif";
+
 // Vòng lặp màu cho tag/nhãn để tạo cảm giác ombre thay vì một màu hồng cố định
 const TAG_STYLES = [
   "bg-emerald-50/70 text-emerald-700 border-emerald-200/70",
   "bg-pink-50/70 text-pink-700 border-pink-200/70",
   "bg-purple-50/70 text-purple-700 border-purple-200/70",
 ];
-
-// Màu icon Key theo từng bậc, dùng riêng cho viên thuốc Mở Khoá trong trang chi tiết
-const KEY_TIER_ICON_COLOR: Record<KeyTier, string> = {
-  bronze: "#b45309",
-  silver: "#64748b",
-  gold: "#c99a1f",
-  diamond: "#0891b2",
-};
 
 type CharacterExt = Character & {
   status?: CharacterStatus;
@@ -113,6 +121,8 @@ type CharacterExt = Character & {
   keyRedeemCount?: number;
   hiddenFile?: HiddenFile | null;
 };
+
+type DetailTab = "plot" | "arcs" | "gallery" | "hidden";
 
 const DEFAULT_CHARACTERS: Character[] = [];
 
@@ -168,8 +178,8 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
   const [hiddenUnlocked, setHiddenUnlocked] = useState(false);
   const [hiddenError, setHiddenError] = useState(false);
 
-  // --- Danh sách id mạch truyện đang mở (thẻ washi-tape bấm để xoè nội dung) ---
-  const [openArcIds, setOpenArcIds] = useState<string[]>([]);
+  // --- Tab đang chọn trong trang chi tiết (redesign) ---
+  const [activeDetailTab, setActiveDetailTab] = useState<DetailTab>("plot");
 
   useEffect(() => {
     const q = query(collection(db, "characters"), orderBy("createdAt", "desc"));
@@ -237,12 +247,12 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
 
   const handleViewCharacter = async (character: Character) => {
     setSelectedCharacter(character);
-    // Reset trạng thái giải mã File Ẩn + mạch truyện đang mở mỗi lần mở 1 nhân vật khác
+    // Reset trạng thái giải mã File Ẩn + tab mỗi lần mở 1 nhân vật khác
     setShowHiddenUnlock(false);
     setHiddenPasswordInput("");
     setHiddenUnlocked(false);
     setHiddenError(false);
-    setOpenArcIds([]);
+    setActiveDetailTab("plot");
     if (character.id.startsWith("default-")) return;
     try {
       const charRef = doc(db, "characters", character.id);
@@ -271,10 +281,6 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
     } else {
       setHiddenError(true);
     }
-  };
-
-  const toggleStoryArc = (id: string) => {
-    setOpenArcIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
   const uploadBlobToCloudinary = async (blob: Blob): Promise<string> => {
@@ -622,11 +628,10 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
   };
 
   // ==================================================================
-  // TRANG CHI TIẾT NHÂN VẬT — "BENTO SCRAPBOOK"
-  // Không có background màu riêng: dùng nền trắng/pastel sạch, các khối
-  // hơi lệch góc như dán ảnh thủ công vào sổ tay. Khối Mở Khoá (Key/Public
-  // Link/File Ẩn) hiện NGAY DƯỚI hồ sơ dạng viên thuốc bấm được, không còn
-  // ẩn trong khung riêng hay nằm cuối trang.
+  // TRANG CHI TIẾT NHÂN VẬT — bản redesign theo phong cách carrd:
+  // banner ảnh phủ gradient nhẹ, tab pill để chuyển nội dung, khối
+  // "biết thêm" 2 cột, và khối "ghi chú" đánh số ở cuối. Nền xám ấm +
+  // panel trắng phẳng thay cho glass-panel trong suốt trước đây.
   // ==================================================================
   if (selectedCharacter) {
     const ext = selectedCharacter as CharacterExt;
@@ -636,99 +641,254 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
     const tierMeta = tier ? KEY_TIER_META[tier] : null;
     const isKeyUnlocked = hasKeyGate && unlockedIds.includes(selectedCharacter.id);
     const availableCount = tier ? (userKeys[tier] || 0) : 0;
-    const galleryImages = ext.gallery || [];
-    const heroImage = galleryImages[0];
-    const smallImages = galleryImages.slice(1, 3);
-    const extraImages = galleryImages.slice(3);
+
+    const detailTabs: { id: DetailTab; label: string; show: boolean }[] = [
+      { id: "plot", label: "cốt truyện", show: true },
+      { id: "arcs", label: "ngoại truyện", show: !!ext.storyArcs && ext.storyArcs.length > 0 },
+      { id: "gallery", label: "vibe board", show: !!ext.gallery && ext.gallery.length > 0 },
+      { id: "hidden", label: "file ẩn", show: !!ext.hiddenFile },
+    ].filter((t) => t.show);
+
+    // Ghi chú tổng hợp — thay cho các khối rải rác trước đây
+    const notes: string[] = [];
+    if (hasKeyGate && tierMeta && !isKeyUnlocked) {
+      notes.push(`cần Key ${tierMeta.label} (giữ chuỗi Manifest ${tierMeta.threshold} ngày) để mở khoá nhân vật này`);
+    }
+    if (hasKeyGate && tierMeta && isKeyUnlocked) {
+      notes.push(`đã mở khoá bằng Key ${tierMeta.label} — link phần thưởng ở khối bên dưới`);
+    }
+    if (isPublicLink) {
+      notes.push("nhân vật này có link công khai, không cần Key");
+    }
+    if (ext.status === "locked" && ext.statusReason) {
+      notes.push(`đang khoá — ${ext.statusReason}`);
+    }
+    if (ext.hiddenFile) {
+      notes.push("có một File Ẩn đi kèm, cần đáp án đúng để đọc nội dung");
+    }
 
     return (
-      <div className="w-full max-w-2xl mx-auto px-4 py-8 z-10 relative">
-        {/* Nút quay về */}
-        <button
-          onClick={() => setSelectedCharacter(null)}
-          className="mb-5 inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-white border border-purple-100 text-slate-500 text-xs font-bold hover:bg-purple-50/70 transition-colors"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          Quay về khu vườn
-        </button>
+      <div style={{ background: DETAIL_BG, minHeight: "100vh" }} className="w-full z-10 relative">
+        <style>{`
+          @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap');
+        `}</style>
 
-        {isAdmin && (hasKeyGate || isPublicLink) && (
-          <div className="flex items-center justify-center gap-4 mb-4 text-[10px] font-bold text-slate-500">
-            <span className="flex items-center gap-1">
-              <MousePointerClick className="w-3.5 h-3.5 text-purple-400" /> {ext.linkClicks || 0} lượt bấm link
-            </span>
-            {hasKeyGate && (
-              <span className="flex items-center gap-1">
-                <KeyRound className="w-3.5 h-3.5 text-pink-400" /> {ext.keyRedeemCount || 0} lượt đổi Key
+        <div className="w-full max-w-xl mx-auto px-4 py-10" style={{ fontFamily: FONT_BODY, color: DETAIL_INK }}>
+          {/* Nút quay về */}
+          <button
+            onClick={() => setSelectedCharacter(null)}
+            className="mb-5 inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-medium transition-colors hover:opacity-80"
+            style={{ background: DETAIL_PANEL, color: DETAIL_INK, border: `1px solid ${DETAIL_HAIRLINE}` }}
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            quay về khu vườn
+          </button>
+
+          {/* Banner */}
+          <div className="relative w-full rounded-2xl overflow-hidden" style={{ aspectRatio: "16/10" }}>
+            <img src={selectedCharacter.avatar} alt={selectedCharacter.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+            <div
+              className="absolute inset-0"
+              style={{ background: `linear-gradient(180deg, ${BRAND_GREEN}22 0%, ${BRAND_LAVENDER}22 45%, rgba(20,16,22,0.75) 100%)` }}
+            />
+            {ext.status && (
+              <span
+                className="absolute top-4 right-4 text-xs font-medium px-3 py-1 rounded-full"
+                style={{ background: "rgba(255,255,255,0.9)", color: DETAIL_INK }}
+              >
+                {CHARACTER_STATUS_META[ext.status].label}
               </span>
             )}
-          </div>
-        )}
-
-        {/* ---------- Hồ sơ: avatar tròn dán lệch góc + tên + trạng thái + tag + chỉ số ---------- */}
-        <div className="pl-1.5 mb-4">
-          <div className="flex items-end gap-3.5">
-            <div className="relative w-[78px] h-[78px] min-w-[78px] rounded-full overflow-hidden border-[3px] border-white shadow-[0_10px_24px_rgba(150,120,180,0.25)] -rotate-[4deg]">
-              <img src={selectedCharacter.avatar} alt={selectedCharacter.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-            </div>
-            <div className="pb-1">
-              <h1 className="font-display text-2xl font-bold text-[#3a3348] leading-tight">{selectedCharacter.name}</h1>
-              <p className="text-[11px] text-[#8f88a0] mt-0.5">{selectedCharacter.role}</p>
+            <div className="absolute bottom-4 left-5 right-5">
+              <h1 className="text-2xl text-white" style={{ fontFamily: FONT_DISPLAY, fontWeight: 500 }}>
+                {selectedCharacter.name}
+              </h1>
+              <p className="text-xs text-white/80 mt-0.5">{selectedCharacter.role}</p>
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-1.5 mt-3">
-            {ext.status && (() => {
-              const meta = CHARACTER_STATUS_META[ext.status!];
-              const Icon = meta.icon;
-              return (
-                <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-[10px] font-bold ${meta.badge}`}>
-                  <Icon className="w-3 h-3" />
-                  <span>{meta.label}</span>
-                  {ext.status === "locked" && ext.statusReason && (
-                    <span className="font-normal italic opacity-80">· {ext.statusReason}</span>
-                  )}
-                </span>
-              );
-            })()}
+          {/* Hàng thống kê nhanh */}
+          <div className="flex items-center justify-end gap-4 mt-3 text-xs" style={{ color: DETAIL_MUTED }}>
+            <span className="flex items-center gap-1">
+              <Heart className="w-3.5 h-3.5" style={{ color: DETAIL_ACCENT, fill: DETAIL_ACCENT }} />
+              {selectedCharacter.likes >= 1000 ? `${(selectedCharacter.likes / 1000).toFixed(1)}k` : selectedCharacter.likes}
+            </span>
+            <span className="flex items-center gap-1">
+              <Eye className="w-3.5 h-3.5" />
+              {ext.views || 0}
+            </span>
+          </div>
 
-            {selectedCharacter.tags.map((t, i) => (
-              <span key={t} className={`text-[10px] font-bold px-2.5 py-1 rounded-full border ${TAG_STYLES[i % TAG_STYLES.length]}`}>
-                #{t}
+          {/* Tags */}
+          <div className="flex flex-wrap gap-2 mt-3">
+            {selectedCharacter.tags.map((t) => (
+              <span
+                key={t}
+                className="text-xs px-2.5 py-1 rounded-full"
+                style={{ background: DETAIL_PANEL, border: `1px solid ${DETAIL_HAIRLINE}`, color: DETAIL_MUTED }}
+              >
+                {t}
               </span>
             ))}
-
-            <span className="text-[10px] font-bold px-2.5 py-1 rounded-full border bg-white text-slate-500 border-slate-200 flex items-center gap-1">
-              <Eye className="w-3 h-3" /> {ext.views || 0} lượt ghé qua
-            </span>
-            <span className="text-[10px] font-bold px-2.5 py-1 rounded-full border bg-pink-50/70 text-pink-600 border-pink-200/70 flex items-center gap-1">
-              <Heart className="w-3 h-3 fill-pink-500 text-pink-500" /> {selectedCharacter.likes} lượt thích
-            </span>
           </div>
-        </div>
 
-        {/* ---------- MỞ KHOÁ — viên thuốc ngang, không khung, ngay dưới hồ sơ ---------- */}
-        {(hasKeyGate || isPublicLink || !!ext.hiddenFile) && (
-          <div className="flex flex-wrap gap-2 justify-center mb-2">
-            {isPublicLink && ext.unlockRewardLink && (
+          {/* Divider ombre thương hiệu */}
+          <div
+            className="h-px w-full my-6"
+            style={{ background: `linear-gradient(90deg, ${BRAND_GREEN}, ${BRAND_PINK}, ${BRAND_LAVENDER})`, opacity: 0.6 }}
+          />
+
+          {/* Tab nav */}
+          <div className="flex flex-wrap gap-2">
+            {detailTabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveDetailTab(tab.id)}
+                className="text-xs font-medium px-3.5 py-1.5 rounded-full transition-colors"
+                style={
+                  activeDetailTab === tab.id
+                    ? { background: DETAIL_INK, color: "#fff" }
+                    : { background: DETAIL_PANEL, color: DETAIL_MUTED, border: `1px solid ${DETAIL_HAIRLINE}` }
+                }
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Content panel — chuyển tab bằng AnimatePresence, 1 hiệu ứng duy nhất */}
+          <div className="mt-4 rounded-2xl p-6" style={{ background: DETAIL_PANEL, border: `1px solid ${DETAIL_HAIRLINE}` }}>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeDetailTab}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.2 }}
+              >
+                {activeDetailTab === "plot" && (
+                  <div className="text-sm leading-relaxed whitespace-pre-line" style={{ color: "#4A454C" }}>
+                    {selectedCharacter.plot}
+                  </div>
+                )}
+
+                {activeDetailTab === "arcs" && ext.storyArcs && (
+                  <div className="flex flex-col gap-4">
+                    {ext.storyArcs.map((arc) => (
+                      <div key={arc.id} className="pb-4" style={{ borderBottom: `1px solid ${DETAIL_HAIRLINE}` }}>
+                        <p className="text-sm font-semibold mb-1 flex items-center gap-1.5">
+                          <BookOpen className="w-3.5 h-3.5" style={{ color: DETAIL_ACCENT }} />
+                          {arc.title}
+                        </p>
+                        <p className="text-xs leading-relaxed" style={{ color: DETAIL_MUTED }}>{arc.content}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {activeDetailTab === "gallery" && ext.gallery && (
+                  <div className="grid grid-cols-2 gap-2">
+                    {ext.gallery.map((img) => (
+                      <div key={img.id} className="relative rounded-xl overflow-hidden group" style={{ aspectRatio: "1/1" }}>
+                        <img src={img.url} alt={img.caption || selectedCharacter.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                        {img.caption && (
+                          <span className="absolute bottom-2 left-2 text-[10px] text-white/90 px-2 py-0.5 rounded-full" style={{ background: "rgba(0,0,0,0.35)" }}>
+                            {img.caption}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {activeDetailTab === "hidden" && ext.hiddenFile && (
+                  <div>
+                    {!hiddenUnlocked ? (
+                      <div className="flex flex-col gap-3">
+                        {ext.hiddenFile.question && (
+                          <p className="text-xs flex items-start gap-1.5" style={{ color: DETAIL_MUTED }}>
+                            <HelpCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                            {ext.hiddenFile.question}
+                          </p>
+                        )}
+                        <input
+                          type="password"
+                          value={hiddenPasswordInput}
+                          onChange={(e) => { setHiddenPasswordInput(e.target.value); setHiddenError(false); }}
+                          onKeyDown={(e) => e.key === "Enter" && handleTryHiddenPassword()}
+                          placeholder="nhập đáp án..."
+                          className="text-xs px-3 py-2 rounded-xl outline-none"
+                          style={{ border: `1px solid ${hiddenError ? DETAIL_ACCENT : DETAIL_HAIRLINE}`, background: DETAIL_BG }}
+                        />
+                        {hiddenError && <span className="text-xs" style={{ color: DETAIL_ACCENT }}>sai mật khẩu, thử lại nhé</span>}
+                        <button
+                          onClick={handleTryHiddenPassword}
+                          className="self-start text-xs font-medium px-4 py-2 rounded-full text-white"
+                          style={{ background: DETAIL_INK }}
+                        >
+                          giải mã
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="text-sm leading-relaxed whitespace-pre-line" style={{ color: "#4A454C" }}>
+                        {ext.hiddenFile.content}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </motion.div>
+            </AnimatePresence>
+          </div>
+
+          {/* Khối "biết thêm" — 2 cột định nghĩa nhanh */}
+          <div className="mt-4 rounded-2xl overflow-hidden" style={{ background: DETAIL_PANEL, border: `1px solid ${DETAIL_HAIRLINE}` }}>
+            <div className="grid grid-cols-2">
+              {[
+                ["vai trò", selectedCharacter.role],
+                ["trạng thái", ext.status ? CHARACTER_STATUS_META[ext.status].label : "—"],
+                ["thẻ", selectedCharacter.tags.join(", ")],
+                ["mở khoá", tierMeta ? `Key ${tierMeta.label}` : isPublicLink ? "Link công khai" : "Tự do"],
+              ].map(([label, value], i) => (
+                <div
+                  key={label}
+                  className="p-4"
+                  style={{
+                    borderRight: i % 2 === 0 ? `1px solid ${DETAIL_HAIRLINE}` : "none",
+                    borderBottom: i < 2 ? `1px solid ${DETAIL_HAIRLINE}` : "none",
+                  }}
+                >
+                  <p className="text-[10px] font-semibold mb-1" style={{ color: DETAIL_MUTED }}>{label}</p>
+                  <p className="text-xs">{value}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Public Link — nút nhận link trực tiếp */}
+          {isPublicLink && ext.unlockRewardLink && (
+            <div className="mt-4 rounded-2xl p-5 flex flex-col items-center gap-2 text-center" style={{ background: DETAIL_PANEL, border: `1px solid ${DETAIL_HAIRLINE}` }}>
+              <span className="text-xs font-medium" style={{ color: DETAIL_MUTED }}>bản thảo đang chờ bạn hoàn thành...</span>
               <a
                 href={ext.unlockRewardLink}
                 target="_blank"
                 rel="noreferrer"
                 onClick={() => handleLinkClick(selectedCharacter)}
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full text-[11px] font-extrabold text-slate-700 bg-[#F8F5FC] hover:bg-purple-100 transition-colors"
+                className="text-xs font-medium px-4 py-2 rounded-full inline-flex items-center gap-1.5"
+                style={{ background: `linear-gradient(90deg, ${BRAND_GREEN}, ${BRAND_PINK}, ${BRAND_LAVENDER})`, color: "#3f2d45" }}
               >
-                <ExternalLink className="w-3.5 h-3.5 text-purple-500" />
-                Nhận Link Ngay
+                <ExternalLink className="w-3.5 h-3.5" /> nhận link ngay
               </a>
-            )}
+            </div>
+          )}
 
-            {hasKeyGate && tierMeta && (
-              isKeyUnlocked ? (
+          {/* Key Gate — mở khoá bằng Key */}
+          {hasKeyGate && tierMeta && (
+            <div className="mt-4 rounded-2xl p-5 flex flex-col items-center gap-2 text-center" style={{ background: DETAIL_PANEL, border: `1px solid ${DETAIL_HAIRLINE}` }}>
+              {isKeyUnlocked ? (
                 <>
-                  <span className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full text-[11px] font-extrabold text-slate-700 bg-[#F8F5FC]">
-                    <KeyRound className="w-3.5 h-3.5" style={{ color: KEY_TIER_ICON_COLOR[tier as KeyTier] }} />
-                    {tierMeta.emoji} Key {tierMeta.label} · Đã mở khoá
+                  <span className="text-xs font-medium flex items-center gap-1.5">
+                    <Unlock className="w-3.5 h-3.5" style={{ color: DETAIL_ACCENT }} />
+                    đã mở khoá bằng {tierMeta.emoji} Key {tierMeta.label}
                   </span>
                   {ext.unlockRewardLink && (
                     <a
@@ -736,164 +896,67 @@ export default function CharacterSection({ isAdmin, currentUser, onUpdateUser, s
                       target="_blank"
                       rel="noreferrer"
                       onClick={() => handleLinkClick(selectedCharacter)}
-                      className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full text-[11px] font-extrabold text-slate-700 bg-[#F8F5FC] hover:bg-purple-100 transition-colors"
+                      className="text-xs font-medium px-4 py-2 rounded-full inline-flex items-center gap-1.5"
+                      style={{ background: `linear-gradient(90deg, ${BRAND_GREEN}, ${BRAND_PINK}, ${BRAND_LAVENDER})`, color: "#3f2d45" }}
                     >
-                      <ExternalLink className="w-3.5 h-3.5 text-purple-500" />
-                      Nhận Link Ngay
+                      <ExternalLink className="w-3.5 h-3.5" /> nhận link ngay
                     </a>
                   )}
                 </>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => handleUnlockWithKey(selectedCharacter)}
-                  disabled={availableCount < 1 || unlockingId === selectedCharacter.id}
-                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full text-[11px] font-extrabold text-slate-700 bg-[#F8F5FC] hover:bg-purple-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                >
-                  <KeyRound className="w-3.5 h-3.5" style={{ color: KEY_TIER_ICON_COLOR[tier as KeyTier] }} />
-                  {unlockingId === selectedCharacter.id
-                    ? "Đang mở..."
-                    : `${tierMeta.emoji} Dùng Key ${tierMeta.label} (${availableCount})`}
-                </button>
-              )
-            )}
+                <>
+                  <span className="text-xs font-medium flex items-center gap-1.5">
+                    <Lock className="w-3.5 h-3.5" /> {tierMeta.emoji} cần Key {tierMeta.label} để mở khoá
+                  </span>
+                  <span className="text-[11px]" style={{ color: DETAIL_MUTED }}>bạn đang có {availableCount} Key {tierMeta.label}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleUnlockWithKey(selectedCharacter)}
+                    disabled={availableCount < 1 || unlockingId === selectedCharacter.id}
+                    className="text-xs font-medium px-4 py-2 rounded-full disabled:opacity-40 disabled:cursor-not-allowed"
+                    style={{ background: `linear-gradient(90deg, ${BRAND_GREEN}, ${BRAND_PINK}, ${BRAND_LAVENDER})`, color: "#3f2d45" }}
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <Unlock className="w-3.5 h-3.5" />
+                      {unlockingId === selectedCharacter.id ? "đang mở..." : "dùng Key mở khoá"}
+                    </span>
+                  </button>
+                  {availableCount < 1 && (
+                    <span className="text-[10px] italic" style={{ color: DETAIL_MUTED }}>giữ chuỗi Manifest {tierMeta.threshold} ngày rồi đổi Key ở trang Manifest nhé!</span>
+                  )}
+                </>
+              )}
+            </div>
+          )}
 
-            {ext.hiddenFile && (
-              <button
-                type="button"
-                onClick={() => setShowHiddenUnlock((v) => !v)}
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full text-[11px] font-extrabold text-white bg-[#3a3348] hover:opacity-90 transition-opacity"
-              >
-                <FileLock2 className="w-3.5 h-3.5" />
-                {hiddenUnlocked ? "File Ẩn (đã giải mã)" : "File Ẩn — Giải mã"}
-              </button>
-            )}
-          </div>
-        )}
-
-        {hasKeyGate && !isKeyUnlocked && availableCount < 1 && tierMeta && (
-          <p className="text-center text-[10px] text-slate-400 italic mb-3">
-            Giữ chuỗi Manifest {tierMeta.threshold} ngày rồi đổi Key ở trang Manifest nhé!
-          </p>
-        )}
-
-        {/* Khung nhập mật khẩu File Ẩn — hiện khi bấm viên thuốc, ẩn khi đã giải mã */}
-        <AnimatePresence>
-          {ext.hiddenFile && showHiddenUnlock && !hiddenUnlocked && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              className="overflow-hidden mb-4"
-            >
-              <div className="rounded-2xl border border-purple-200/50 bg-white p-4 flex flex-col gap-2.5 max-w-sm mx-auto">
-                {ext.hiddenFile.question && (
-                  <p className="text-xs text-slate-600 flex items-start gap-1.5">
-                    <HelpCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-purple-400" />
-                    <span>{ext.hiddenFile.question}</span>
+          {/* Ghi chú — danh sách đánh số kiểu carrd */}
+          {notes.length > 0 && (
+            <div className="mt-4 rounded-2xl p-5" style={{ background: DETAIL_PANEL, border: `1px solid ${DETAIL_HAIRLINE}` }}>
+              <p className="text-[10px] font-semibold mb-2.5" style={{ color: DETAIL_MUTED }}>ghi chú</p>
+              <div className="flex flex-col gap-2">
+                {notes.map((n, i) => (
+                  <p key={i} className="text-xs leading-relaxed" style={{ color: "#4A454C" }}>
+                    <span style={{ color: DETAIL_ACCENT, fontWeight: 600 }}>[{i + 1}.]</span> {n}
                   </p>
-                )}
-                <input
-                  type="password"
-                  value={hiddenPasswordInput}
-                  onChange={(e) => { setHiddenPasswordInput(e.target.value); setHiddenError(false); }}
-                  onKeyDown={(e) => e.key === "Enter" && handleTryHiddenPassword()}
-                  placeholder="Nhập đáp án / mật khẩu..."
-                  className={`bg-white border rounded-xl px-3 py-2 text-xs outline-none ${hiddenError ? "border-rose-300" : "border-purple-200"}`}
-                />
-                {hiddenError && <span className="text-[10px] text-rose-500 font-bold">Sai mật khẩu, thử lại nhé!</span>}
-                <button
-                  type="button"
-                  onClick={handleTryHiddenPassword}
-                  className="self-end px-4 py-1.5 rounded-full text-[10px] font-bold text-white transition-transform hover:scale-105"
-                  style={{ background: `linear-gradient(90deg, ${BRAND_GREEN}, ${BRAND_PINK}, ${BRAND_LAVENDER})`, color: "#3f2d45" }}
-                >
-                  Giải Mã
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <AnimatePresence>
-          {ext.hiddenFile && hiddenUnlocked && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-2xl border border-purple-200/50 bg-white p-4 mb-4 max-w-sm mx-auto">
-              <p className="text-[10px] uppercase tracking-widest font-bold text-slate-500 mb-2">Nội dung File Ẩn</p>
-              <p className="text-sm leading-loose whitespace-pre-line text-slate-700 font-medium">{ext.hiddenFile.content}</p>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* ---------- LƯỚI BENTO: ảnh vibe to/nhỏ dán lệch góc ---------- */}
-        {galleryImages.length > 0 && (
-          <div className="grid grid-cols-2 gap-2.5 mb-3">
-            {heroImage && (
-              <div className={`${smallImages.length > 0 ? "row-span-2" : "col-span-2"} rounded-[24px] overflow-hidden -rotate-[1.5deg] shadow-[0_10px_26px_rgba(150,120,180,0.18)]`}>
-                <img src={heroImage.url} alt={heroImage.caption || selectedCharacter.name} className="w-full h-full object-cover aspect-square" referrerPolicy="no-referrer" />
-              </div>
-            )}
-
-            {smallImages.map((img, i) => (
-              <div
-                key={img.id}
-                className={`aspect-square rounded-[20px] overflow-hidden shadow-[0_8px_20px_rgba(150,120,180,0.15)] ${i % 2 === 0 ? "rotate-[2deg]" : "-rotate-[2deg]"}`}
-              >
-                <img src={img.url} alt={img.caption || selectedCharacter.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-              </div>
-            ))}
-
-            {extraImages.length > 0 && (
-              <div className="col-span-2 grid grid-cols-4 gap-2">
-                {extraImages.map((img, i) => (
-                  <div key={img.id} className={`aspect-square rounded-2xl overflow-hidden shadow-sm ${i % 2 === 0 ? "rotate-1" : "-rotate-1"}`}>
-                    <img src={img.url} alt={img.caption || selectedCharacter.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                  </div>
                 ))}
               </div>
-            )}
-          </div>
-        )}
-
-        {/* ---------- PLOT ---------- */}
-        <div className="bg-white border border-[#EFE8F5] rounded-[22px] p-5 md:p-6 rotate-[0.5deg] shadow-[0_8px_22px_rgba(150,120,180,0.12)] mb-3">
-          <h4 className="text-[10px] uppercase tracking-widest font-bold text-purple-400 mb-2 flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5" />
-            PLOT: CỐT TRUYỆN CHÍNH
-          </h4>
-          <div className="text-sm leading-loose whitespace-pre-line text-[#4a4356] font-medium">
-            {selectedCharacter.plot}
-          </div>
-        </div>
-
-        {/* ---------- Mạch truyện bổ sung — thẻ washi-tape, bấm để xoè từng mục ---------- */}
-        {ext.storyArcs && ext.storyArcs.length > 0 && (
-          <div className="bg-white border border-[#EFE8F5] rounded-[22px] p-4 -rotate-[0.5deg] shadow-[0_8px_22px_rgba(150,120,180,0.12)] mb-3">
-            <p className="text-[11px] font-extrabold text-[#3a3348] flex items-center gap-1.5 mb-1">
-              <BookOpen className="w-3.5 h-3.5 text-purple-400" />
-              Mạch Truyện Bổ Sung
-            </p>
-            <div className="flex flex-col">
-              {ext.storyArcs.map((arc) => {
-                const isOpen = openArcIds.includes(arc.id);
-                return (
-                  <div key={arc.id}>
-                    <button
-                      type="button"
-                      onClick={() => toggleStoryArc(arc.id)}
-                      className="w-full flex items-center justify-between py-2.5 border-t border-dashed border-[#EFE8F5] first:border-t-0"
-                    >
-                      <span className="text-xs font-bold text-slate-700 text-left">{arc.title}</span>
-                      <ChevronDown className={`w-3.5 h-3.5 text-slate-400 flex-shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`} />
-                    </button>
-                    {isOpen && (
-                      <p className="text-xs leading-relaxed text-slate-500 pb-3 whitespace-pre-line">{arc.content}</p>
-                    )}
-                  </div>
-                );
-              })}
             </div>
-          </div>
-        )}
+          )}
+
+          {/* Thống kê chỉ Admin thấy — đặt lặng lẽ ở cuối trang */}
+          {isAdmin && (hasKeyGate || isPublicLink) && (
+            <div className="flex items-center justify-center gap-4 mt-6 text-[10px]" style={{ color: DETAIL_MUTED }}>
+              <span className="flex items-center gap-1">
+                <MousePointerClick className="w-3.5 h-3.5" /> {ext.linkClicks || 0} lượt bấm link
+              </span>
+              {hasKeyGate && (
+                <span className="flex items-center gap-1">
+                  <KeyRound className="w-3.5 h-3.5" /> {ext.keyRedeemCount || 0} lượt đổi Key
+                </span>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     );
   }
