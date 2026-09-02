@@ -57,12 +57,12 @@ html, body {
    (CharacterSection.tsx > renderCharacterCard). Không đụng tới .glass-panel /
    .glass-panel-dark / .glass-panel-ultra vì 3 class đó vẫn dùng chung ở nhiều
    nơi khác trong app (navbar, toast, form, trang chi tiết nhân vật...).
-   Thay backdrop-blur bằng nền ombre hồng-tím pastel đặc để vừa đúng màu vừa
-   nhẹ hiệu năng hơn hẳn so với backdrop-filter khi nhân bản theo số lượng thẻ. */
+   ĐÃ CHỈNH: pha loãng ombre hồng-tím bằng trắng để ra tông pastel-wash nhạt
+   (gần trắng, chỉ ánh nhẹ hồng/tím) thay vì ombre đậm như bản trước. */
 .character-card-panel {
-  background: linear-gradient(135deg, #FFE3EF 0%, #F6E3FF 50%, #E7DBFF 100%);
-  border: 1px solid rgba(255, 255, 255, 0.7);
-  box-shadow: 0 10px 30px 0 rgba(200, 150, 220, 0.18);
+  background: linear-gradient(135deg, #FFF6FA 0%, #FBF4FF 50%, #F4F1FF 100%);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 10px 30px 0 rgba(200, 150, 220, 0.10);
 }
 
 /* 4. GLOW TEXT SHADOWS (Thu gọn shadow để đỡ ngốn GPU) */
